@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת ניהול מחסן</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- טעינת פונטים -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- קישור לקובץ העיצוב שלנו -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100">
+
+    <!-- כל האפליקציה תיטען לתוך ה-div הזה -->
+    <div id="app-root">
+        <!-- תוכן דינמי יוזרק לכאן על ידי JavaScript -->
+    </div>
+
+    <!-- טעינת הלוגיקה של האפליקציה מהקובץ החיצוני -->
+    <script type="module" src="app.js"></script>
+
+</body>
+</html>
