@@ -1,4 +1,5 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+import { doc, setDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
 // This is a "component" that encapsulates the HTML and logic for the Auth screen.
 export const AuthView = {
@@ -26,13 +27,14 @@ export const AuthView = {
                             <div><label for="signup-name" class="block text-sm font-medium text-gray-700">שם מלא</label><input type="text" id="signup-name" name="fullName" required class="input-style"></div>
                             <div><label for="signup-email" class="block text-sm font-medium text-gray-700">כתובת מייל</label><input type="email" id="signup-email" name="email" required autocomplete="email" class="input-style"></div>
                             <div><label for="signup-password" class="block text-sm font-medium text-gray-700">סיסמה</label><input type="password" id="signup-password" name="password" required minlength="6" autocomplete="new-password" class="input-style"></div>
+                            <div><label for="signup-store" class="block text-sm font-medium text-gray-700">שם סניף</label><input type="text" id="signup-store" name="storeName" required class="input-style"></div>
                             <button type="submit" class="w-full py-2 px-4 text-white font-semibold bg-indigo-600 rounded-md hover:bg-indigo-700 flex justify-center items-center">הירשם</button>
                         </form>
                     </div>
                 </div>
             </div>`;
     },
-    attachEventListeners: function(auth, GoogleAuthProvider, signInWithRedirect) {
+    attachEventListeners: function(auth, GoogleAuthProvider, signInWithRedirect, db) {
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const googleLoginBtn = document.getElementById('google-login-btn');
@@ -71,6 +73,14 @@ export const AuthView = {
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, signupForm.email.value, signupForm.password.value);
                 await updateProfile(userCredential.user, { displayName: signupForm.fullName.value });
+                // שמור את שם הסניף במסמך המשתמש
+                if (db) {
+                    const userRef = doc(db, "users", userCredential.user.uid);
+                    await setDoc(userRef, {
+                        fullName: signupForm.fullName.value,
+                        storeName: signupForm.storeName.value
+                    }, { merge: true });
+                }
             } catch (error) {
                 messageArea.textContent = `שגיאה בהרשמה: ${error.message}`;
                 messageArea.classList.add('text-red-500');
@@ -82,5 +92,7 @@ export const AuthView = {
             const provider = new GoogleAuthProvider();
             await signInWithRedirect(auth, provider);
         });
-    }
+        
+            
+        }
 };

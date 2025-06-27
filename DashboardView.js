@@ -61,10 +61,11 @@ export const DashboardView = {
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4 flex-wrap">
                     <h2 class="text-2xl font-semibold text-gray-800">לוח בקרה</h2>
                     <div id="main-controls" class="flex flex-col sm:flex-row gap-2 flex-wrap">
+                        <button data-action="show-view" data-view="sales-stats" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">סטטיסטיקת מכירות</button>
                          <button data-action="show-view" data-view="order-history" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto">היסטוריית הזמנות</button>
                          <button data-action="show-view" data-view="picking-orders" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-yellow-600 transition-colors w-full sm:w-auto">הזמנות לליקוט</button>
                          <button data-action="show-view" data-view="create-order" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors w-full sm:w-auto">צור הזמנה חדשה</button>
-                         <button data-action="show-view" data-view="add-product" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">הוסף מוצר</button>
+                         <button data-action="show-view" data-view="add-product" class="bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">הוסף מוצר</button>
                     </div>
                 </div>
                 <div class="bg-white p-6 rounded-lg shadow-md">

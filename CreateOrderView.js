@@ -1,229 +1,223 @@
-import { collection, query, onSnapshot, writeBatch, doc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-let productsCache = {};
-let shoppingCart = {};
-let unsubscribeFromProducts = null;
+let products = [];
+let shoppingCart = {}; // productId => quantity
 
-// --- Private Helper Functions ---
-function showMessage(area, text, isError = false) {
-    if (!area) return;
-    area.textContent = text;
-    area.className = `text-center p-2 rounded-md text-sm mb-4 ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-    if (!isError) {
-        setTimeout(() => { if (area) area.textContent = ''; }, 3000);
-    }
+async function loadProducts(db) {
+    const snap = await getDocs(collection(db, "products"));
+    products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-function renderShoppingCart() {
-    const cartContainer = document.getElementById('order-cart-items');
-    const submitBtn = document.getElementById('submit-order-btn');
-    if (!cartContainer || !submitBtn) return;
+function getBrands(products) {
+    return [...new Set(products.map(p => p.brand).filter(Boolean))];
+}
 
-    cartContainer.innerHTML = '';
-    const skus = Object.keys(shoppingCart);
+function renderCartIndicator() {
+    const cartCount = Object.values(shoppingCart).reduce((a, b) => a + b, 0);
+    const el = document.getElementById('cart-indicator');
+    if (el) el.textContent = cartCount > 0 ? ` (${cartCount})` : '';
+}
 
-    if (skus.length === 0) {
-        cartContainer.innerHTML = `<p class="text-gray-500 text-center">העגלה ריקה</p>`;
-        submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+function renderCartSummary() {
+    const cartContainer = document.getElementById('cart-summary');
+    const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
+    if (!cartContainer) return;
+    if (items.length === 0) {
+        cartContainer.innerHTML = `<div class="text-gray-500 text-center">העגלה ריקה</div>`;
+        document.getElementById('save-order-btn').disabled = true;
         return;
     }
-    
-    submitBtn.disabled = false;
-    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    cartContainer.innerHTML = `
+        <ul class="mb-2">
+            ${items.map(([productId, qty]) => {
+                const product = products.find(p => p.id === productId);
+                return `<li>${product ? product.name : productId} - <b>${qty}</b></li>`;
+            }).join('')}
+        </ul>
+    `;
+    document.getElementById('save-order-btn').disabled = false;
+}
 
-    skus.forEach(sku => {
-        const product = productsCache[sku];
-        if (!product) return; // Failsafe if product not in cache yet
-        const quantity = shoppingCart[sku];
-        const itemHtml = `
-            <div class="flex items-center justify-between gap-2 bg-gray-50 p-2 rounded-md">
-                <div class="flex-grow">
-                    <p class="font-semibold text-sm text-gray-800">${product.name}</p>
-                    <p class="text-xs text-gray-500">${product.brand}</p>
+async function saveOrder(db, auth) {
+    const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
+    if (items.length === 0) return;
+
+    // Fetch user info from Firestore
+    let storeName = "לא ידוע";
+    let createdByName = "לא ידוע";
+    if (auth.currentUser) {
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            storeName = userData.storeName || storeName;
+            createdByName = userData.fullName || createdByName;
+        }
+    }
+
+    const order = {
+        createdAt: new Date(),
+        createdBy: auth.currentUser ? auth.currentUser.uid : null,
+        storeName,
+        createdByName,
+        status: "pending"
+    };
+    const orderRef = await addDoc(collection(db, "orders"), order);
+    for (const [productId, qty] of items) {
+        await addDoc(collection(db, "orders", orderRef.id, "orderItems"), {
+            productId,
+            quantityOrdered: qty
+        });
+    }
+    // איפוס העגלה
+    Object.keys(shoppingCart).forEach(pid => shoppingCart[pid] = 0);
+    renderProducts(document.getElementById('brand-filter').value);
+    renderCartIndicator();
+    renderCartSummary();
+    alert("ההזמנה נשמרה בהצלחה!");
+}
+
+function renderProducts(brand = "") {
+    const container = document.getElementById('products-list');
+    let filtered = brand ? products.filter(p => p.brand === brand) : products;
+    container.innerHTML = "";
+    filtered.forEach(product => {
+        const qty = shoppingCart[product.id] || 0;
+        const imageUrl = product.imageUrl || product.image || '';
+        let weightStr = "לא צויין";
+        if (
+            product.weight &&
+            typeof product.weight === "object" &&
+            product.weight.value !== undefined &&
+            product.weight.value !== null &&
+            product.weight.unit
+        ) {
+            weightStr = `${product.weight.value} ${product.weight.unit}`;
+        }
+        container.innerHTML += `
+            <div class="relative border rounded p-4 flex flex-col items-center mb-4 bg-white shadow">
+                ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" class="w-24 h-24 object-contain mb-2 rounded">` : ''}
+                <div class="font-bold">${product.name}</div>
+                <div class="text-sm text-gray-500 mb-1">${product.brand || ''}</div>
+                <div class="text-xs text-gray-600 mb-2">משקל: ${weightStr}</div>
+                <div class="flex items-center gap-2 mb-2">
+                    <button class="decrease-qty-btn bg-red-500 text-white px-2 py-1 rounded" data-product-id="${product.id}" title="הפחת">
+                        -
+                    </button>
+                    <span class="font-bold text-lg min-w-[24px] text-center">${qty}</span>
+                    <button class="add-to-cart-btn bg-blue-600 text-white px-2 py-1 rounded" data-product-id="${product.id}" title="הוסף">
+                        +
+                    </button>
                 </div>
-                <input type="number" value="${quantity}" data-action="update-cart-quantity" data-sku="${sku}" min="1" class="w-16 text-center border-gray-300 rounded-md">
-                <button data-action="remove-from-cart" data-sku="${sku}" class="text-red-500 hover:text-red-700 p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="pointer-events: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                ${qty > 0 ? `
+                    <span class="absolute top-2 right-2 bg-green-500 text-white rounded-full px-2 py-1 text-xs">
+                        ${qty}
+                    </span>
+                ` : ''}
             </div>
         `;
-        cartContainer.innerHTML += itemHtml;
+    });
+    renderCartSummary();
+}
+
+function listenCartButtons() {
+    document.getElementById('products-list').addEventListener('click', e => {
+        const addBtn = e.target.closest('.add-to-cart-btn');
+        const decBtn = e.target.closest('.decrease-qty-btn');
+        let changed = false;
+        if (addBtn) {
+            const productId = addBtn.dataset.productId;
+            shoppingCart[productId] = (shoppingCart[productId] || 0) + 1;
+            changed = true;
+            showToast(`נוספה יחידה לעגלה!`);
+        }
+        if (decBtn) {
+            const productId = decBtn.dataset.productId;
+            shoppingCart[productId] = (shoppingCart[productId] || 0) - 1;
+            if (shoppingCart[productId] < 0) shoppingCart[productId] = 0;
+            changed = true;
+        }
+        if (changed) {
+            renderProducts(document.getElementById('brand-filter').value);
+            renderCartIndicator();
+        }
     });
 }
 
-function listenToProducts(db) {
-    const orderProductListContainer = document.getElementById('order-product-list');
-    if (!orderProductListContainer) return null;
+function showToast(msg) {
+    let toast = document.getElementById('cart-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'cart-toast';
+        toast.style.position = 'fixed';
+        toast.style.bottom = '30px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = '#38a169';
+        toast.style.color = 'white';
+        toast.style.padding = '12px 24px';
+        toast.style.borderRadius = '8px';
+        toast.style.fontWeight = 'bold';
+        toast.style.zIndex = 9999;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 1200);
+}
 
-    const q = query(collection(db, "products"));
-    unsubscribeFromProducts = onSnapshot(q, (querySnapshot) => {
-        orderProductListContainer.innerHTML = '';
-        productsCache = {};
-
-        if (querySnapshot.empty) {
-            orderProductListContainer.innerHTML = `<p class="text-gray-500 col-span-full text-center">לא נמצאו מוצרים להזמנה.</p>`;
-            return;
-        }
-
-        querySnapshot.forEach((doc) => {
-            const product = doc.data();
-            productsCache[doc.id] = product;
-            const placeholderUrl = `https://placehold.co/400x300/e2e8f0/4a5568?text=${encodeURIComponent(product.name)}`;
-            
-            const card = document.createElement('div');
-            card.className = "border rounded-lg p-3 flex flex-col items-center text-center gap-2";
-            card.innerHTML = `
-                <img src="${product.imageUrl || placeholderUrl}" class="h-20 w-20 object-contain" onerror="this.onerror=null;this.src='${placeholderUrl}';">
-                <p class="font-semibold text-sm h-10 leading-tight">${product.name}</p>
-                <button data-action="add-to-cart" data-sku="${doc.id}" class="w-full bg-blue-100 text-blue-800 text-sm font-bold py-2 rounded-md hover:bg-blue-200 transition-colors">הוסף</button>
-            `;
-            orderProductListContainer.appendChild(card);
-        });
+function listenBrandFilter() {
+    document.getElementById('brand-filter').addEventListener('change', e => {
+        renderProducts(e.target.value);
     });
-    return unsubscribeFromProducts;
 }
 
-async function handleCreateOrder(db, auth) {
-    const button = document.getElementById('submit-order-btn');
-    button.disabled = true;
-    button.innerHTML = '<div class="loader"></div>';
-    
-    const messageArea = document.getElementById('create-order-message-area');
-    if (Object.keys(shoppingCart).length === 0) {
-        showMessage(messageArea, 'עגלת הקניות ריקה.', true);
-        button.disabled = false;
-        button.innerHTML = 'שלח הזמנה';
-        return;
-    }
-
-    try {
-        const orderNotes = document.getElementById('order-notes').value;
-        const orderRef = await addDoc(collection(db, "orders"), {
-            createdByUserId: auth.currentUser.uid,
-            storeId: "some-store-id", // Placeholder for now
-            status: "pending",
-            orderDate: serverTimestamp(),
-            itemCount: Object.keys(shoppingCart).length,
-            notes: orderNotes || ""
-        });
-
-        const batch = writeBatch(db);
-        for (const sku in shoppingCart) {
-            const product = productsCache[sku];
-            const orderItemRef = doc(collection(db, "orders", orderRef.id, "orderItems"));
-            batch.set(orderItemRef, { 
-                productId: sku, 
-                name: product.name, 
-                brand: product.brand, 
-                quantityOrdered: shoppingCart[sku], 
-                quantityPicked: 0, 
-                status: "pending" 
-            });
-        }
-        
-        await batch.commit();
-
-        showMessage(messageArea, 'ההזמנה נשלחה בהצלחה!', false);
-        shoppingCart = {};
-        renderShoppingCart();
-        document.getElementById('order-notes').value = '';
-
-    } catch (error) {
-        console.error("Error creating order: ", error);
-        showMessage(messageArea, 'שגיאה ביצירת ההזמנה.', true);
-    } finally {
-        button.disabled = false;
-        button.innerHTML = 'שלח הזמנה';
-    }
-}
-
-
-// --- Public Interface ---
 export const CreateOrderView = {
     getHTML: function() {
-        // --- התיקון כאן: הוספת div עוטף עם ID ---
         return `
-            <div id="create-order-view"> 
-                <div class="flex items-center mb-6">
-                    <button data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+            <div>
+                <div class="flex items-center mb-4">
+                    <button type="button" data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100 mr-2" title="חזרה לדשבורד">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
-                    <h2 class="text-2xl font-semibold text-gray-800 mr-2">יצירת הזמנה חדשה</h2>
+                    <span class="font-bold text-xl">הוספת הזמנה</span>
+                    <span id="cart-indicator" class="ml-2 text-green-700"></span>
                 </div>
-                <div id="create-order-message-area" class="text-center p-2 rounded-md text-sm mb-4"></div>
-                <div class="flex flex-col lg:flex-row gap-6">
-                    <div class="lg:w-2/3 bg-white p-6 rounded-lg shadow-md">
-                         <h3 class="text-lg font-semibold text-gray-700 mb-4">בחר מוצרים</h3>
-                         <div id="order-product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div class="col-span-full text-center text-gray-500">טוען מוצרים...</div>
-                         </div>
-                    </div>
-                    <div class="lg:w-1/3">
-                        <div class="bg-white p-6 rounded-lg shadow-md sticky top-24">
-                             <h3 class="text-lg font-semibold text-gray-700 mb-4">עגלת קניות</h3>
-                             <div id="order-cart-items" class="max-h-60 overflow-y-auto space-y-3 pr-2">
-                                 <p class="text-gray-500 text-center" id="empty-cart-message">העגלה ריקה</p>
-                             </div>
-                             <div class="mt-4">
-                                 <label for="order-notes" class="block text-sm font-medium text-gray-700">הערות להזמנה</label>
-                                 <textarea id="order-notes" rows="3" class="input-style mt-1" placeholder="לדוגמה: לא להביא ביום שני..."></textarea>
-                             </div>
-                             <div class="mt-6 border-t pt-4">
-                                 <button data-action="create-order" id="submit-order-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex justify-center items-center opacity-50 cursor-not-allowed" disabled>
-                                     שלח הזמנה
-                                 </button>
-                             </div>
-                        </div>
-                    </div>
+                <div class="mb-4">
+                    <label for="brand-filter" class="font-semibold">סנן לפי מותג:</label>
+                    <select id="brand-filter" class="input-style ml-2">
+                        <option value="">הצג הכל</option>
+                    </select>
+                </div>
+                <div id="products-list" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"></div>
+                <div class="bg-gray-50 p-4 rounded shadow mt-4">
+                    <h3 class="font-bold mb-2">סיכום עגלה</h3>
+                    <div id="cart-summary"></div>
+                    <button id="save-order-btn" class="bg-green-600 text-white px-4 py-2 rounded mt-2" disabled>שמור הזמנה</button>
                 </div>
             </div>
         `;
     },
-    init: function(db, auth, showViewCallback) {
-        shoppingCart = {};
+    init: async function(db, auth, showView) {
+        await loadProducts(db);
+        const brands = getBrands(products);
+        const brandSelect = document.getElementById('brand-filter');
+        brands.forEach(brand => {
+            const opt = document.createElement('option');
+            opt.value = brand;
+            opt.textContent = brand;
+            brandSelect.appendChild(opt);
+        });
+        renderProducts();
+        renderCartIndicator();
+        listenCartButtons();
+        listenBrandFilter();
 
-        const productListener = listenToProducts(db);
-        renderShoppingCart();
-        
-        const container = document.getElementById('create-order-view');
-        if (container) {
-             // --- התיקון כאן: מנגנון ההאזנה לאירועים מחובר כעת לקונטיינר הנכון ---
-             container.addEventListener('click', (e) => {
-                const button = e.target.closest('button');
-                if(!button || !button.dataset.action) return;
+        document.getElementById('save-order-btn').addEventListener('click', async () => {
+            await saveOrder(db, auth);
+        });
 
-                const { action, sku, view } = button.dataset;
-
-                if (view) {
-                    showViewCallback(view);
-                    return;
-                }
-
-                if (action === 'add-to-cart') {
-                    if (shoppingCart[sku]) { shoppingCart[sku]++; } else { shoppingCart[sku] = 1; }
-                    renderShoppingCart();
-                } else if(action === 'remove-from-cart') {
-                    delete shoppingCart[sku];
-                    renderShoppingCart();
-                } else if (action === 'create-order') {
-                    handleCreateOrder(db, auth);
-                }
-            });
-
-            container.addEventListener('change', (e) => {
-                 if (e.target.dataset.action === 'update-cart-quantity') {
-                    const sku = e.target.dataset.sku;
-                    const newQuantity = parseInt(e.target.value, 10);
-                    if (newQuantity > 0) {
-                        shoppingCart[sku] = newQuantity;
-                    } else {
-                        delete shoppingCart[sku];
-                    }
-                    renderShoppingCart();
-                 }
-            });
-        }
-        return [productListener];
+        // No need for direct back button handler, handled globally in app.js
+        return [];
     }
 };

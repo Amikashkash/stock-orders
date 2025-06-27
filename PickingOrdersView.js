@@ -1,83 +1,72 @@
-import { collection, query, onSnapshot, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-let ordersCache = {};
-let unsubscribeFromOrders = null;
-
-// --- Private Functions ---
-
-function listenToOrders(db) {
-    const container = document.getElementById('picking-orders-list');
-    if (!container) return [];
-
-    const q = query(collection(db, "orders"), where("status", "==", "pending"));
-    unsubscribeFromOrders = onSnapshot(q, (querySnapshot) => {
-        container.innerHTML = '';
-        ordersCache = {};
-
-        if (querySnapshot.empty) {
-            container.innerHTML = `<p class="text-gray-500 text-center">אין הזמנות חדשות לליקוט.</p>`;
-            return;
-        }
-
-        querySnapshot.forEach((doc) => {
-            const order = doc.data();
-            ordersCache[doc.id] = order;
-            const orderCard = document.createElement('div');
-            orderCard.className = "bg-white border rounded-lg p-4 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow";
-            orderCard.innerHTML = `
-                <div>
-                    <p class="font-bold text-gray-800">הזמנה #${doc.id.substring(0, 6)}</p>
-                    <p class="text-sm text-gray-600">חנות: ${order.storeId}</p>
-                    <p class="text-sm text-gray-500">תאריך: ${order.orderDate ? new Date(order.orderDate.seconds * 1000).toLocaleDateString('he-IL') : 'לא ידוע'}</p>
-                    ${order.notes ? `<p class="text-sm text-red-600 mt-2"><strong>הערה:</strong> ${order.notes}</p>` : ''}
-                </div>
-                <button data-action="show-pick-order-details" data-order-id="${doc.id}" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600">התחל ליקוט</button>
-            `;
-            container.appendChild(orderCard);
-        });
-    });
-
-    return [unsubscribeFromOrders];
-}
-
-// --- Public Interface ---
 export const PickingOrdersView = {
     getHTML: function() {
         return `
-            <div id="picking-orders-view">
+            <div>
                 <div class="flex items-center mb-6">
-                    <button data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    <button data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100" title="חזרה לדשבורד">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800 mr-2">הזמנות לליקוט</h2>
                 </div>
                 <div id="picking-orders-list" class="space-y-4">
-                     <div class="text-center text-gray-500">טוען הזמנות...</div>
+                    <div class="text-center text-gray-500">טוען הזמנות...</div>
                 </div>
             </div>
         `;
     },
-    init: function(db, showViewCallback) {
-        const listeners = listenToOrders(db); 
+    init: function(db, showView) {
+        const list = document.getElementById('picking-orders-list');
+        list.innerHTML = `<div class="text-center text-gray-500">טוען הזמנות...</div>`;
 
-        const container = document.getElementById('picking-orders-view');
-        if (container) {
-            container.addEventListener('click', (e) => {
-                const button = e.target.closest('button');
-                if (!button || !button.dataset.action) return;
-
-                const { action, orderId, view } = button.dataset;
-                
-                if (view) {
-                    showViewCallback(view);
-                } else if (action === 'show-pick-order-details') {
-                    showViewCallback('pick-order-details', { orderId: orderId });
-                }
+        // Query only orders that are not picked yet
+        const q = query(collection(db, "orders"), where("status", "in", ["pending", "in-progress"]));
+        const unsubscribe = onSnapshot(q, (snap) => {
+            if (snap.empty) {
+                list.innerHTML = `<div class="text-center text-gray-500">אין הזמנות לליקוט כרגע.</div>`;
+                return;
+            }
+            list.innerHTML = "";
+            snap.forEach(docSnap => {
+                const order = docSnap.data();
+                const storeName = (order.storeName && order.storeName !== "Set Store Name Here") ? order.storeName : "לא ידוע";
+                const createdByName = order.createdByName || "לא ידוע";
+                list.innerHTML += `
+                    <div class="border rounded p-4 bg-white shadow flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="font-bold">הזמנה #${docSnap.id.substring(0, 6)}</div>
+                                <div class="text-sm text-gray-500">חנות: ${storeName}</div>
+                                <div class="text-sm text-gray-500">הוזמן ע"י: ${createdByName}</div>
+                            </div>
+                            <button data-action="show-pick-order-details" data-order-id="${docSnap.id}" class="text-blue-600 hover:underline">פרטי ליקוט</button>
+                        </div>
+                        ${order.notes ? `<div class="mt-2 text-yellow-800 bg-yellow-100 p-2 rounded">${order.notes}</div>` : ""}
+                    </div>
+                `;
             });
-        }
-        return listeners;
+        });
+
+        // Delegate click for details button
+        list.addEventListener('click', e => {
+            const btn = e.target.closest('button[data-action="show-pick-order-details"]');
+            if (btn) {
+                showView('pick-order-details', { orderId: btn.dataset.orderId });
+            }
+        });
+
+        // Optional: cache orders for quick access in details view
+        this._orderCache = {};
+        onSnapshot(q, (snap) => {
+            snap.forEach(docSnap => {
+                this._orderCache[docSnap.id] = docSnap.data();
+            });
+        });
+
+        return [unsubscribe];
     },
     getOrderFromCache: function(orderId) {
-        return ordersCache[orderId];
+        return this._orderCache ? { [orderId]: this._orderCache[orderId] } : {};
     }
 };

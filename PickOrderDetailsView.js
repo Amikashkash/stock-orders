@@ -1,6 +1,6 @@
 import { collection, query, onSnapshot, doc, updateDoc, writeBatch, getDocs, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-// --- Private Helper Functions ---
+// --- Helper: הצגת הודעות למשתמש ---
 function showMessage(area, text, isError = false) {
     if (!area) return;
     area.textContent = text;
@@ -10,7 +10,8 @@ function showMessage(area, text, isError = false) {
     }
 }
 
-function listenToOrderItems(db, orderId) {
+// --- Helper: האזנה לפריטי ההזמנה ---
+function listenToOrderItems(db, orderId, readOnly = false) {
     const container = document.getElementById('pick-order-items-list');
     if (!container) return null;
 
@@ -22,29 +23,31 @@ function listenToOrderItems(db, orderId) {
             return;
         }
         querySnapshot.forEach((doc) => {
-           const item = doc.data();
-           const isPicked = item.status === 'picked';
-           const itemHtml = `
-               <div class="grid grid-cols-4 items-center gap-4 border-b pb-2" id="item-${doc.id}">
-                   <div class="col-span-2">
-                       <p class="font-semibold text-gray-800">${item.name}</p>
-                       <p class="text-sm text-gray-500">הוזמן: ${item.quantityOrdered}</p>
-                   </div>
-                   <input type="number" id="picked-qty-${doc.id}" class="input-style text-center" value="${isPicked ? item.quantityPicked : item.quantityOrdered}" min="0" ${isPicked ? 'disabled' : ''}>
-                   <button data-action="${isPicked ? 'unpick' : 'pick'}" data-order-id="${orderId}" data-item-id="${doc.id}" class="font-semibold py-2 px-4 rounded-md transition-colors ${isPicked ? 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">${isPicked ? 'שנה' : 'אשר'}</button>
-               </div>
-           `;
-           container.innerHTML += itemHtml;
+            const item = doc.data();
+            const isPicked = item.status === 'picked';
+            const disabled = readOnly || isPicked ? 'disabled' : '';
+            const itemHtml = `
+                <div class="grid grid-cols-4 items-center gap-4 border-b pb-2" id="item-${doc.id}">
+                    <div class="col-span-2">
+                        <p class="font-semibold text-gray-800">${item.name}</p>
+                        <p class="text-sm text-gray-500">הוזמן: ${item.quantityOrdered}</p>
+                    </div>
+                    <input type="number" id="picked-qty-${doc.id}" class="input-style text-center" value="${isPicked ? item.quantityPicked : item.quantityOrdered}" min="0" ${disabled}>
+                    ${!readOnly ? `
+                        <button data-action="${isPicked ? 'unpick' : 'pick'}" data-order-id="${orderId}" data-item-id="${doc.id}" class="font-semibold py-2 px-4 rounded-md transition-colors ${isPicked ? 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">${isPicked ? 'שנה' : 'אשר'}</button>
+                    ` : ''}
+                </div>
+            `;
+            container.innerHTML += itemHtml;
         });
     });
     return unsubscribe;
 }
 
-
 // --- Public Interface ---
 export const PickOrderDetailsView = {
-    getHTML: function(orderId, orderCache) {
-        const order = orderCache[orderId];
+    getHTML: function(orderId, orderCache, readOnly = false) {
+        const order = orderCache && orderCache[orderId] ? orderCache[orderId] : null;
         return `
             <div class="flex items-center mb-6">
                 <button data-action="show-view" data-view="picking-orders" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100">
@@ -57,12 +60,92 @@ export const PickOrderDetailsView = {
             <div id="pick-order-items-list" class="bg-white p-6 rounded-lg shadow-md space-y-4">
                 <div class="text-center text-gray-500">טוען פריטים...</div>
             </div>
+            ${!readOnly ? `
             <div class="mt-6 text-left">
                 <button data-action="complete-picking" data-order-id="${orderId}" id="complete-picking-btn" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-600 transition-colors flex justify-center items-center">השלם ליקוט</button>
             </div>
+            ` : ''}
         `;
     },
-    init: function(db, orderId) {
-        return [listenToOrderItems(db, orderId)];
-    }
+    init: function(db, orderId, readOnly = false) {
+        const unsub = listenToOrderItems(db, orderId, readOnly);
+
+        if (readOnly) return [unsub];
+
+        // טיפול באירועי ליקוט/שינוי
+        const itemsList = document.getElementById('pick-order-items-list');
+        if (itemsList) {
+            itemsList.addEventListener('click', async (e) => {
+                const button = e.target.closest('button[data-action]');
+                if (!button) return;
+                const action = button.dataset.action;
+                const itemId = button.dataset.itemId;
+                if (!itemId) return;
+
+                const qtyInput = document.getElementById(`picked-qty-${itemId}`);
+                const pickedQty = parseInt(qtyInput.value, 10);
+
+                if (action === 'pick') {
+                    const itemRef = doc(db, "orders", orderId, "orderItems", itemId);
+                    await updateDoc(itemRef, {
+                        status: 'picked',
+                        quantityPicked: pickedQty
+                    });
+                } else if (action === 'unpick') {
+                    const itemRef = doc(db, "orders", orderId, "orderItems", itemId);
+                    await updateDoc(itemRef, {
+                        status: 'pending'
+                    });
+                }
+            });
+        }
+
+        // טיפול בלחיצה על "השלם ליקוט"
+        const completeBtn = document.getElementById('complete-picking-btn');
+        if (completeBtn) {
+            completeBtn.addEventListener('click', async () => {
+                completeBtn.disabled = true;
+                try {
+                    const itemsSnap = await getDocs(collection(db, "orders", orderId, "orderItems"));
+                    let allPicked = true;
+                    itemsSnap.forEach(doc => {
+                        if (doc.data().status !== 'picked') allPicked = false;
+                    });
+                    if (!allPicked) {
+                        showMessage(document.getElementById('pick-order-message-area'), "אנא סיים את ליקוט כל הפריטים לפני השלמת הליקוט.", true);
+                        completeBtn.disabled = false;
+                        return;
+                    }
+                    await updateDoc(doc(db, "orders", orderId), {
+                        status: 'picked',
+                        pickedAt: serverTimestamp()
+                    });
+
+                    const batch = writeBatch(db);
+                    itemsSnap.forEach(itemDoc => {
+                        const item = itemDoc.data();
+                        if (item.productId && item.quantityPicked) {
+                            const productRef = doc(db, "products", item.productId);
+                            batch.update(productRef, {
+                                stockQuantity: increment(-item.quantityPicked)
+                            });
+                        }
+                    });
+                    await batch.commit();
+
+                    if (itemsList) {
+                        itemsList.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                    }
+                    completeBtn.textContent = "הליקוט הושלם";
+                    showMessage(document.getElementById('pick-order-message-area'), "הליקוט הושלם והמלאי עודכן בהצלחה!");
+                } catch (e) {
+                    completeBtn.disabled = false;
+                    showMessage(document.getElementById('pick-order-message-area'), "שגיאה: " + e.message, true);
+                    console.error(e);
+                }
+            });
+        }
+
+        return [unsub];
+    },
 };

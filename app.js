@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithRedirect, getRedirectResult, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+import { getFirestore, setDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { AuthView } from './AuthView.js';
 import { DashboardView } from './DashboardView.js';
 import { AddProductView } from './AddProductView.js';
@@ -8,10 +8,9 @@ import { EditProductView } from './EditProductView.js';
 import { CreateOrderView } from './CreateOrderView.js';
 import { PickingOrdersView } from './PickingOrdersView.js';
 import { PickOrderDetailsView } from './PickOrderDetailsView.js';
+import { OrderHistoryView } from './OrderHistoryView.js';
+import { SalesStatsView } from './SalesStatsView.js';
 
-// ===================================
-// Firebase Configuration
-// ===================================
 const firebaseConfig = {
     apiKey: "AIzaSyCdAYpf-yICDIHVaqZtRhTk14xV5IfewF4",
     authDomain: "stock-orders-75be0.firebaseapp.com",
@@ -22,33 +21,28 @@ const firebaseConfig = {
     measurementId: "G-71PT1GXC8R"
 };
 
-// ===================================
-// Globals & State
-// ===================================
 let auth, db;
 const appRoot = document.getElementById('app-root');
 const appState = {
     currentUser: null,
-    currentView: 'dashboard', 
+    currentView: 'dashboard',
     editingProductId: null,
     pickingOrderId: null,
     listeners: [],
 };
 
-// ===================================
-// Application Router & Renderer
-// ===================================
-
 function showView(viewName, params = {}) {
     appState.currentView = viewName;
     if (params && params.productId) appState.editingProductId = params.productId;
     if (params && params.orderId) appState.pickingOrderId = params.orderId;
-    renderApp(appState.currentUser);
+    renderApp(appState.currentUser, params);
 }
 
-function renderApp(user) {
+function renderApp(user, params = {}) {
     if (!appRoot) return;
-    appState.listeners.forEach(unsub => unsub());
+    if (Array.isArray(appState.listeners)) {
+        appState.listeners.forEach(unsub => unsub && unsub());
+    }
     appState.listeners = [];
 
     if (user) {
@@ -64,58 +58,83 @@ function renderApp(user) {
             </header>
             <main id="app-content" class="container mx-auto p-4 sm:p-6"></main>
         `;
-        
+
         const mainContent = document.getElementById('app-content');
-        
+        let listeners = [];
+
         switch (appState.currentView) {
             case 'dashboard':
-            default:
                 mainContent.innerHTML = DashboardView.getHTML();
-                appState.listeners = DashboardView.init(db);
+                listeners = DashboardView.init(db) || [];
                 break;
             case 'add-product':
-                 mainContent.innerHTML = AddProductView.getHTML();
-                 AddProductView.init(db, showView);
-                 break;
+                mainContent.innerHTML = AddProductView.getHTML();
+                listeners = AddProductView.init(db, showView) || [];
+                break;
             case 'edit-product':
-                const productToEdit = DashboardView.getProductFromCache(appState.editingProductId);
+                const productToEdit = DashboardView.getProductFromCache
+                    ? DashboardView.getProductFromCache(appState.editingProductId)
+                    : null;
                 mainContent.innerHTML = EditProductView.getHTML(productToEdit);
-                EditProductView.init(db, showView);
+                listeners = EditProductView.init(db, showView) || [];
                 break;
-             case 'create-order':
+            case 'create-order':
                 mainContent.innerHTML = CreateOrderView.getHTML();
-                appState.listeners = CreateOrderView.init(db, auth, showView);
+                listeners = awaitOrSync(CreateOrderView.init, db, auth, showView);
                 break;
-             case 'picking-orders':
+            case 'picking-orders':
                 mainContent.innerHTML = PickingOrdersView.getHTML();
-                appState.listeners = PickingOrdersView.init(db);
+                listeners = PickingOrdersView.init(db, showView) || [];
                 break;
-             case 'pick-order-details':
-                const orderData = PickingOrdersView.getOrderFromCache(appState.pickingOrderId);
-                mainContent.innerHTML = PickOrderDetailsView.getHTML(appState.pickingOrderId, orderData);
-                appState.listeners = PickOrderDetailsView.init(db,  appState.pickingOrderId );
+            case 'order-history':
+                mainContent.innerHTML = OrderHistoryView.getHTML();
+                listeners = OrderHistoryView.init(db, showView) || [];
                 break;
+            case 'pick-order-details':
+                const orderId = params?.orderId;
+                const readOnly = params?.readOnly || false;
+                const orderData = params?.orderData || (PickingOrdersView.getOrderFromCache ? PickingOrdersView.getOrderFromCache(orderId) : {}) || {};
+                mainContent.innerHTML = PickOrderDetailsView.getHTML(orderId, { [orderId]: orderData }, readOnly);
+                listeners = PickOrderDetailsView.init(db, orderId, readOnly) || [];
+                break;
+            case 'sales-stats':
+                mainContent.innerHTML = SalesStatsView.getHTML();
+                listeners = SalesStatsView.init(db, showView) || [];
+                break;
+            default:
+                mainContent.innerHTML = `<div>Not found</div>`;
+                listeners = [];
         }
 
-        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-        
+        appState.listeners = Array.isArray(listeners) ? listeners : [];
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                await signOut(auth);
+            });
+        }
+
     } else {
         appRoot.innerHTML = AuthView.getHTML();
-        AuthView.attachEventListeners(auth, GoogleAuthProvider, signInWithRedirect);
+        AuthView.attachEventListeners(auth, GoogleAuthProvider, signInWithRedirect, db);
     }
 }
 
+function awaitOrSync(fn, ...args) {
+    const result = fn(...args);
+    if (result && typeof result.then === 'function') {
+        return result.then(res => res || []);
+    }
+    return result || [];
+}
 
-// ===================================
-// Initialization
-// ===================================
 function main() {
     try {
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
 
-        // --- התיקון כאן: מנהל אירועים מרכזי אחד לכל האפליקציה ---
         document.body.addEventListener('click', (e) => {
             const button = e.target.closest('button');
             if (!button || !button.dataset.action) return;
@@ -134,21 +153,38 @@ function main() {
         getRedirectResult(auth).catch(error => {
             console.error("Error with redirect result:", error);
             const messageArea = document.getElementById('auth-message-area');
-            if(messageArea) messageArea.textContent = 'שגיאה בהתחברות עם גוגל.';
+            if (messageArea) messageArea.textContent = 'שגיאה בהתחברות עם גוגל.';
         });
 
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             appState.currentUser = user;
             if (user && appState.currentView === 'auth') {
                 appState.currentView = 'dashboard';
             } else if (!user) {
                 appState.currentView = 'auth';
             }
+            // ודא שמירת פרטי משתמש (לא מוחק storeName קיים)
+            if (user) {
+                const userRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userRef);
+                if (!userDoc.exists()) {
+                    await setDoc(userRef, {
+                        fullName: user.displayName || "No Name",
+                        storeName: "Set Store Name Here",
+                        email: user.email
+                    });
+                } else {
+                    await setDoc(userRef, {
+                        fullName: user.displayName || "No Name",
+                        email: user.email
+                    }, { merge: true });
+                }
+            }
             renderApp(user);
         });
 
     } catch (e) {
-        console.error("Initialization Failed:", e);
+        console.error("App initialization error:", e);
         appRoot.innerHTML = `<div class="p-8 text-center text-red-500">שגיאה קריטית באתחול האפליקציה.</div>`;
     }
 }
