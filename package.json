@@ -1,0 +1,27 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "main": "AddProductView.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo No build needed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amikashkash/stock-orders.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Amikashkash/stock-orders/issues"
+  },
+  "homepage": "https://github.com/Amikashkash/stock-orders#readme",
+  "description": ""
+
+  
+
+}
+
+
+
