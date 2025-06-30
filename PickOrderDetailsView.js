@@ -70,10 +70,17 @@ export const PickOrderDetailsView = {
                 const productName = product?.name || "מוצר לא ידוע";
                 const brand = product?.brand ? ` (${product.brand})` : "";
                 const imageUrl = product?.imageUrl || product?.image || "";
+
+                // Show weight/size: expects product.weight = { value: 2, unit: "ק\"ג" }
+                let weightDisplay = "";
+                if (product?.weight && product.weight.value && product.weight.unit) {
+                    weightDisplay = `<span class="text-xs text-gray-500 ml-2">(${product.weight.value} ${product.weight.unit})</span>`;
+                }
+
                 html += `
                     <div class="border rounded p-4 bg-white shadow flex flex-col gap-2 items-center">
                         ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" class="w-24 h-24 object-contain mb-2 rounded">` : ""}
-                        <div class="font-bold">${productName}${brand}</div>
+                        <div class="font-bold">${productName}${brand} ${weightDisplay}</div>
                         <div class="text-sm text-gray-500">כמות מוזמנת: ${item.quantityOrdered}</div>
                         <div class="text-sm text-gray-500 flex items-center gap-2">
                             כמות שנלקטה:
