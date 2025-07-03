@@ -56,46 +56,54 @@ export const PickOrderDetailsView = {
             });
         });
 
+
+        // start of updated code 
         function renderItems() {
-            if (localItems.length === 0) {
-                detailsList.innerHTML = `<div class="text-center text-gray-500">אין פריטים להזמנה זו.</div>`;
-                if (completeBtn) completeBtn.style.display = "none";
-                return;
-            }
+    if (localItems.length === 0) {
+        detailsList.innerHTML = `<div class="text-center text-gray-500">אין פריטים להזמנה זו.</div>`;
+        if (completeBtn) completeBtn.style.display = "none";
+        return;
+    }
 
-            let allPicked = localItems.every(item => item.status === "picked");
-            let html = "";
-            localItems.forEach(item => {
-                const product = productsMap[item.productId];
-                const productName = product?.name || "מוצר לא ידוע";
-                const brand = product?.brand ? ` (${product.brand})` : "";
-                const imageUrl = product?.imageUrl || product?.image || "";
+    let allPicked = localItems.every(item => item.status === "picked");
+    let html = "";
+    localItems.forEach(item => {
+        const product = productsMap[item.productId];
+        const productName = product?.name || "מוצר לא ידוע";
+        const brand = product?.brand ? ` (${product.brand})` : "";
+        const imageUrl = product?.imageUrl || product?.image || "";
 
-                // Show weight/size: expects product.weight = { value: 2, unit: "ק\"ג" }
-                let weightDisplay = "";
-                if (product?.weight && product.weight.value && product.weight.unit) {
-                    weightDisplay = `<span class="text-xs text-gray-500 ml-2">(${product.weight.value} ${product.weight.unit})</span>`;
-                }
+        // Show weight/size: expects product.weight = { value: 2, unit: "ק\"ג" }
+        let weightDisplay = "";
+        if (product?.weight && product.weight.value && product.weight.unit) {
+            weightDisplay = `<span class="text-xs text-gray-500 ml-2">(${product.weight.value} ${product.weight.unit})</span>`;
+        }
 
-                html += `
-                    <div class="border rounded p-4 bg-white shadow flex flex-col gap-2 items-center">
-                        ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" class="w-24 h-24 object-contain mb-2 rounded">` : ""}
-                        <div class="font-bold">${productName}${brand} ${weightDisplay}</div>
-                        <div class="text-sm text-gray-500">כמות מוזמנת: ${item.quantityOrdered}</div>
-                        <div class="text-sm text-gray-500 flex items-center gap-2">
-                            כמות שנלקטה:
-                            <input type="number" min="0" max="${item.quantityOrdered}" value="${item.quantityPicked}" data-doc-id="${item.docId}" class="pick-qty border rounded px-2 py-1 w-16 text-center mx-1" ${item.status === "picked" ? "disabled" : ""} />
-                            <button type="button" class="pick-btn ${item.status === "picked" ? "bg-yellow-500" : "bg-blue-500"} text-white px-2 py-1 rounded" data-doc-id="${item.docId}">
-                                ${item.status === "picked" ? "ערוך" : "אשר"}
-                            </button>
-                            <span class="ml-2 text-green-700 picked-label" data-doc-id="${item.docId}" style="min-width:40px;">
-                                ${item.status === "picked" ? '<span title="נלקט">&#10003; לוקט</span>' : ""}
-                            </span>
-                        </div>
-                    </div>
-                `;
-            });
-            detailsList.innerHTML = html;
+        // NEW: stockQuantity
+        const stockStr = (product?.stockQuantity !== undefined && product?.stockQuantity !== null)
+            ? `<div class="text-xs text-gray-700">מלאי: <b>${product.stockQuantity}</b></div>`
+            : `<div class="text-xs text-gray-400">מלאי לא ידוע</div>`;
+
+        html += `
+            <div class="border rounded p-4 bg-white shadow flex flex-col gap-2 items-center">
+                ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" class="w-24 h-24 object-contain mb-2 rounded">` : ""}
+                <div class="font-bold">${productName}${brand} ${weightDisplay}</div>
+                ${stockStr}
+                <div class="text-sm text-gray-500">כמות מוזמנת: ${item.quantityOrdered}</div>
+                <div class="text-sm text-gray-500 flex items-center gap-2">
+                    כמות שנלקטה:
+                    <input type="number" min="0" max="${item.quantityOrdered}" value="${item.quantityPicked}" data-doc-id="${item.docId}" class="pick-qty border rounded px-2 py-1 w-16 text-center mx-1" ${item.status === "picked" ? "disabled" : ""} />
+                    <button type="button" class="pick-btn ${item.status === "picked" ? "bg-yellow-500" : "bg-blue-500"} text-white px-2 py-1 rounded" data-doc-id="${item.docId}">
+                        ${item.status === "picked" ? "ערוך" : "אשר"}
+                    </button>
+                    <span class="ml-2 text-green-700 picked-label" data-doc-id="${item.docId}" style="min-width:40px;">
+                        ${item.status === "picked" ? '<span title="נלקט">&#10003; לוקט</span>' : ""}
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+    detailsList.innerHTML = html;
 
             // כפתור סיים ליקוט
             if (!readOnly && completeBtn) {

@@ -76,7 +76,7 @@ async function saveOrder(db, auth) {
     renderCartSummary();
     alert("ההזמנה נשמרה בהצלחה!");
 }
-
+// start of updated code
 function renderProducts(brand = "") {
     const container = document.getElementById('products-list');
     let filtered = brand ? products.filter(p => p.brand === brand) : products;
@@ -94,12 +94,18 @@ function renderProducts(brand = "") {
         ) {
             weightStr = `${product.weight.value} ${product.weight.unit}`;
         }
+        // NEW: stockQuantity
+        const stockStr = (product.stockQuantity !== undefined && product.stockQuantity !== null)
+            ? `<div class="text-xs text-gray-700 mb-1">מלאי: <b>${product.stockQuantity}</b></div>`
+            : `<div class="text-xs text-gray-400 mb-1">מלאי לא ידוע</div>`;
+
         container.innerHTML += `
             <div class="relative border rounded p-4 flex flex-col items-center mb-4 bg-white shadow">
                 ${imageUrl ? `<img src="${imageUrl}" alt="${product.name}" class="w-24 h-24 object-contain mb-2 rounded">` : ''}
                 <div class="font-bold">${product.name}</div>
                 <div class="text-sm text-gray-500 mb-1">${product.brand || ''}</div>
                 <div class="text-xs text-gray-600 mb-2">משקל: ${weightStr}</div>
+                ${stockStr}
                 <div class="flex items-center gap-2 mb-2">
                     <button class="decrease-qty-btn bg-red-500 text-white px-2 py-1 rounded" data-product-id="${product.id}" title="הפחת">
                         -
