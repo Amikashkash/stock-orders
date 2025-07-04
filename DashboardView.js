@@ -18,28 +18,12 @@ function listenToProducts(db) {
             return;
         }
 
-        // Gather products into array for sorting
-        const productsArr = [];
         querySnapshot.forEach((doc) => {
             const product = doc.data();
             productsCache[doc.id] = product;
-            product._id = doc.id; // keep id for edit button
-            productsArr.push(product);
-        });
-
-        // Sort by brand, then by name
-        productsArr.sort((a, b) => {
-            if ((a.brand || "") < (b.brand || "")) return -1;
-            if ((a.brand || "") > (b.brand || "")) return 1;
-            if ((a.name || "") < (b.name || "")) return -1;
-            if ((a.name || "") > (b.name || "")) return 1;
-            return 0;
-        });
-
-        productsArr.forEach(product => {
             const placeholderUrl = `https://placehold.co/400x300/e2e8f0/4a5568?text=${encodeURIComponent(product.name)}`;
             const weightText = (product.weight && product.weight.value) ? `${product.weight.value} ${product.weight.unit}` : 'לא צוין';
-
+            
             const card = document.createElement('div');
             card.className = "bg-white border border-gray-200 rounded-lg shadow-md flex flex-col overflow-hidden";
             card.innerHTML = `
@@ -57,7 +41,7 @@ function listenToProducts(db) {
                         <p class="text-sm text-gray-700">כמות במלאי: <span class="font-bold text-lg text-indigo-600">${product.stockQuantity}</span></p>
                     </div>
                     <div class="mt-4 text-center">
-                        <button data-action="edit-product" data-sku="${product._id}" class="w-full text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">ערוך</button>
+                        <button data-action="edit-product" data-sku="${doc.id}" class="w-full text-sm bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-md hover:bg-gray-300 transition-colors">ערוך</button>
                     </div>
                 </div>
             `;
@@ -67,6 +51,7 @@ function listenToProducts(db) {
 
     return [unsubscribe];
 }
+
 
 // --- Public Interface ---
 export const DashboardView = {
@@ -81,8 +66,9 @@ export const DashboardView = {
                         <button data-action="show-view" data-view="picking-orders" class="bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-yellow-600 transition-colors w-full sm:w-auto">הזמנות לליקוט</button>
                         <button data-action="show-view" data-view="sales-stats" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">סטטיסטיקת מכירות</button>
                         <button data-action="show-view" data-view="order-history" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto">היסטוריית הזמנות</button>
+                        
                          
-                        <button data-action="show-view" data-view="add-product" class="bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">הוסף מוצר</button>
+                         <button data-action="show-view" data-view="add-product" class="bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">הוסף מוצר</button>
                     </div>
                 </div>
                 <div class="bg-white p-6 rounded-lg shadow-md">
