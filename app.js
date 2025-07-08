@@ -10,6 +10,9 @@ import { PickingOrdersView } from './PickingOrdersView.js';
 import { PickOrderDetailsView } from './PickOrderDetailsView.js';
 import { OrderHistoryView } from './OrderHistoryView.js';
 import { SalesStatsView } from './SalesStatsView.js';
+import { notificationSystem } from './NotificationSystem.js';
+import { setupExportSystem } from './DataExportSystem.js';
+import { mobileFeedback } from './MobileFeedback.js';
 
 const firebaseConfig = {
     apiKey: "AIzaSyCdAYpf-yICDIHVaqZtRhTk14xV5IfewF4",
@@ -48,11 +51,16 @@ function renderApp(user, params = {}) {
     if (user) {
         appRoot.innerHTML = `
             <header class="bg-white shadow-md sticky top-0 z-10">
-                <nav class="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-                    <h1 class="text-xl font-bold text-indigo-600">ניהול מחסן</h1>
-                    <div class="flex items-center gap-4">
-                        <span id="user-greeting" class="text-gray-700 text-sm hidden sm:block">שלום, ${user.displayName || user.email}</span>
-                        <button id="logout-btn" class="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600">התנתק</button>
+                <nav class="container mx-auto px-4 sm:px-6 py-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div class="flex flex-col">
+                            <h1 class="text-xl font-bold text-indigo-600">ניהול מחסן</h1>
+                            <span class="text-sm text-gray-600 sm:hidden">שלום, ${user.displayName || user.email}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span id="user-greeting" class="text-gray-700 text-sm hidden sm:block">שלום, ${user.displayName || user.email}</span>
+                            <button id="logout-btn" class="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600">התנתק</button>
+                        </div>
                     </div>
                 </nav>
             </header>
@@ -93,8 +101,9 @@ function renderApp(user, params = {}) {
             case 'pick-order-details':
                 const orderId = params?.orderId;
                 const readOnly = params?.readOnly || false;
+                const fromView = params?.fromView || 'picking-orders';
                 const orderData = params?.orderData || (PickingOrdersView.getOrderFromCache ? PickingOrdersView.getOrderFromCache(orderId) : {}) || {};
-                mainContent.innerHTML = PickOrderDetailsView.getHTML(orderId, { [orderId]: orderData }, readOnly);
+                mainContent.innerHTML = PickOrderDetailsView.getHTML(orderId, { [orderId]: orderData }, readOnly, fromView);
                 listeners = PickOrderDetailsView.init(db, orderId, readOnly) || [];
                 break;
             case 'sales-stats':
@@ -134,6 +143,9 @@ function main() {
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
+
+        // הפעלת מערכת הייצוא
+        setupExportSystem(db);
 
         document.body.addEventListener('click', (e) => {
             const button = e.target.closest('button');

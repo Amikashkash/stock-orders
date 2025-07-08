@@ -36,6 +36,7 @@ async function handleUpdateProduct(db, form, showViewCallback) {
             updatedAt: serverTimestamp()
         });
         showMessage(messageArea, 'המוצר עודכן בהצלחה!', false);
+        window.showSuccess('המוצר עודכן בהצלחה!');
         setTimeout(() => showViewCallback('dashboard'), 1500); // Go back to dashboard on success
     } catch (error) {
         console.error("Error updating document: ", error);

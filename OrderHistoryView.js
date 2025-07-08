@@ -75,6 +75,8 @@ export const OrderHistoryView = {
                                 <div class="text-sm text-gray-500">חנות: ${storeName}</div>
                                 <div class="text-sm text-gray-500">הוזמנה ע"י: ${order.createdByName || "לא ידוע"}</div>
                                 <div class="text-sm text-gray-500">הושלמה: ${pickedAtStr}</div>
+                                ${order.notes ? `<div class="text-sm text-blue-600 mt-1"><strong>הערות הזמנה:</strong> ${order.notes}</div>` : ''}
+                                ${order.pickingNotes ? `<div class="text-sm text-orange-600 mt-1"><strong>הערות ליקוט:</strong> ${order.pickingNotes}</div>` : ''}
                             </div>
                             <button data-action="show-order-details" data-order-id="${docSnap.id}" class="text-blue-600 hover:underline">צפה בפרטים</button>
                         </div>
@@ -86,7 +88,7 @@ export const OrderHistoryView = {
             list.addEventListener('click', e => {
                 const btn = e.target.closest('button[data-action="show-order-details"]');
                 if (btn) {
-                    showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true });
+                    showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true, fromView: 'order-history' });
                 }
             });
         } catch (e) {
