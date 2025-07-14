@@ -1,11 +1,18 @@
-import { collection, query, where, getDocs, doc, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+function formatDate(date) {
+    if (!date) return "לא ידוע";
+    if (date.toDate) return date.toDate().toLocaleDateString('he-IL');
+    if (date instanceof Date) return date.toLocaleDateString('he-IL');
+    return new Date(date).toLocaleDateString('he-IL');
+}
 
 export const OrderHistoryView = {
     getHTML: function() {
         return `
             <div>
                 <div class="flex items-center mb-6">
-                    <button data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100" title="Back to Dashboard">
+                    <button data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100" title="חזרה לדשבורד">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800 mr-2">היסטוריית הזמנות</h2>
@@ -19,78 +26,75 @@ export const OrderHistoryView = {
     init: async function(db, showView) {
         const list = document.getElementById('order-history-list');
         list.innerHTML = `<div class="text-center text-gray-500">טוען הזמנות...</div>`;
+
         try {
-            // הצג את כל ההזמנות שנאספו ב-48 שעות האחרונות (או שנה לדרישתך)
-            const now = new Date();
-            const dayAgo = new Date(now.getTime() - 1000 * 60 * 60 * 48);
-            const q = query(
-                collection(db, "orders"),
-                where("status", "==", "picked"),
-                where("pickedAt", ">=", Timestamp.fromDate(dayAgo))
-            );
+            // שאילתה לכל ההזמנות, ממוינות לפי תאריך יצירה
+            const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
             const snap = await getDocs(q);
+
             if (snap.empty) {
-                list.innerHTML = `<div class="text-center text-gray-500">לא נמצאו הזמנות שהושלמו.</div>`;
+                list.innerHTML = `<div class="text-center text-gray-500">אין הזמנות להציג.</div>`;
                 return;
             }
+
             list.innerHTML = "";
-            for (const docSnap of snap.docs) {
+            snap.forEach(docSnap => {
                 const order = docSnap.data();
-                let storeName = (order.storeName && order.storeName !== "Set Store Name Here")
-                    ? order.storeName
-                    : null;
-
-                if (!storeName) {
-                    const userId = order.createdBy || order.createdByUserId;
-                    if (userId) {
-                        try {
-                            const userDoc = await getDoc(doc(db, "users", userId));
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                storeName = userData.storeName || "Set the store name here";
-                            } else {
-                                storeName = "Set the store name here";
-                            }
-                        } catch {
-                            storeName = "Set the store name here";
-                        }
-                    } else {
-                        storeName = "Set the store name here";
-                    }
-                }
-
-                // תצוגת תאריך בפורמט DD/MM/YYYY HH:MM
-                let pickedAtStr = '';
-                if (order.pickedAt && order.pickedAt.toDate) {
-                    const d = order.pickedAt.toDate();
-                    pickedAtStr = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
-                        ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-                }
+                const storeName = (order.storeName && order.storeName !== "Set Store Name Here") ? order.storeName : "לא ידוע";
+                const createdByName = order.createdByName || "לא ידוע";
+                const statusText = getStatusText(order.status);
+                const statusColor = getStatusColor(order.status);
 
                 list.innerHTML += `
                     <div class="border rounded p-4 bg-white shadow">
-                        <div class="flex justify-between items-center">
+                        <div class="flex justify-between items-start mb-2">
                             <div>
                                 <div class="font-bold">הזמנה #${docSnap.id.substring(0, 6)}</div>
                                 <div class="text-sm text-gray-500">חנות: ${storeName}</div>
-                                <div class="text-sm text-gray-500">הוזמנה ע"י: ${order.createdByName || "לא ידוע"}</div>
-                                <div class="text-sm text-gray-500">הושלמה: ${pickedAtStr}</div>
+                                <div class="text-sm text-gray-500">הוזמן ע"י: ${createdByName}</div>
+                                <div class="text-sm text-gray-500">תאריך: ${formatDate(order.createdAt)}</div>
                             </div>
-                            <button data-action="show-order-details" data-order-id="${docSnap.id}" class="text-blue-600 hover:underline">צפה בפרטים</button>
+                            <div class="text-left">
+                                <span class="px-2 py-1 rounded text-sm ${statusColor}">${statusText}</span>
+                                <button data-action="show-pick-order-details" data-order-id="${docSnap.id}" class="block mt-2 text-blue-600 hover:underline text-sm">צפה בפרטים</button>
+                            </div>
                         </div>
-                        ${order.notes ? `<div class="mt-2 text-yellow-800 bg-yellow-100 p-2 rounded">${order.notes}</div>` : ""}
+                        ${order.notes ? `<div class="mt-2 text-yellow-800 bg-yellow-100 p-2 rounded text-sm">${order.notes}</div>` : ""}
                     </div>
                 `;
-            }
+            });
 
+            // מאזין לכפתורי "צפה בפרטים"
             list.addEventListener('click', e => {
-                const btn = e.target.closest('button[data-action="show-order-details"]');
+                const btn = e.target.closest('button[data-action="show-pick-order-details"]');
                 if (btn) {
-                    showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true });
+                    showView('pick-order-details', { orderId: btn.dataset.orderId });
                 }
             });
-        } catch (e) {
-            list.innerHTML = `<div class="text-red-600">שגיאה בטעינת ההזמנות: ${e.message}</div>`;
+
+        } catch (error) {
+            console.error("Error loading order history:", error);
+            list.innerHTML = `<div class="text-red-500 text-center">שגיאה בטעינת ההזמנות: ${error.message}</div>`;
         }
     }
 };
+
+function getStatusText(status) {
+    switch (status) {
+        case "pending": return "ממתין לליקוט";
+        case "in-progress": return "בתהליך ליקוט";
+        case "picked": return "הושלם";
+        case "draft": return "טיוטה";
+        default: return status || "לא ידוע";
+    }
+}
+
+function getStatusColor(status) {
+    switch (status) {
+        case "pending": return "bg-yellow-100 text-yellow-800";
+        case "in-progress": return "bg-blue-100 text-blue-800";
+        case "picked": return "bg-green-100 text-green-800";
+        case "draft": return "bg-gray-100 text-gray-800";
+        default: return "bg-gray-100 text-gray-800";
+    }
+}

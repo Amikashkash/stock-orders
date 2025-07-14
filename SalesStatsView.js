@@ -1,16 +1,14 @@
-import { collection, getDocs, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
 function formatDate(date) {
-    if (!date) return '';
-    const d = typeof date === 'object' && date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    if (!date) return "לא ידוע";
+    if (date.toDate) return date.toDate().toLocaleDateString('he-IL');
+    if (date instanceof Date) return date.toLocaleDateString('he-IL');
+    return new Date(date).toLocaleDateString('he-IL');
 }
 
 export const SalesStatsView = {
     getHTML: function() {
-        const today = new Date();
-        const weekAgo = new Date();
-        weekAgo.setDate(today.getDate() - 7);
         return `
             <div>
                 <div class="flex items-center mb-6">
@@ -19,93 +17,124 @@ export const SalesStatsView = {
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800 mr-2">סטטיסטיקת מכירות</h2>
                 </div>
-                <form id="sales-stats-filter" class="flex gap-4 mb-6 flex-wrap">
-                    <label>מתאריך: <input type="date" id="from-date" value="${weekAgo.toISOString().slice(0,10)}" class="input-style"></label>
-                    <label>עד תאריך: <input type="date" id="to-date" value="${today.toISOString().slice(0,10)}" class="input-style"></label>
-                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">הצג</button>
-                </form>
-                <div id="sales-stats-list" class="space-y-4">
+                <div id="sales-stats-content" class="space-y-4">
                     <div class="text-center text-gray-500">טוען נתונים...</div>
                 </div>
             </div>
         `;
     },
     init: async function(db, showView) {
-        const list = document.getElementById('sales-stats-list');
-        const filterForm = document.getElementById('sales-stats-filter');
+        const content = document.getElementById('sales-stats-content');
+        content.innerHTML = `<div class="text-center text-gray-500">טוען נתונים...</div>`;
 
-        async function loadStats(fromDate, toDate) {
-            list.innerHTML = `<div class="text-center text-gray-500">טוען נתונים...</div>`;
-            try {
-                // שלוף את כל הלוגים בטווח תאריכים
-                const fromTS = Timestamp.fromDate(new Date(fromDate));
-                const toTS = Timestamp.fromDate(new Date(toDate + "T23:59:59"));
-                const logsQ = query(
-                    collection(db, "productSalesLogs"),
-                    where("soldAt", ">=", fromTS),
-                    where("soldAt", "<=", toTS)
-                );
-                const logsSnap = await getDocs(logsQ);
+        try {
+            // שאילתה לכל ההזמנות (לא רק שהושלמו)
+            const q = query(
+                collection(db, "orders"), 
+                orderBy("createdAt", "desc")
+            );
+            const snap = await getDocs(q);
 
-                // סכם לפי productId
-                const stats = {};
-                logsSnap.forEach(docSnap => {
-                    const log = docSnap.data();
-                    if (!stats[log.productId]) stats[log.productId] = { total: 0, last: null, weight: log.weight || null };
-                    stats[log.productId].total += log.quantity;
-                    if (!stats[log.productId].last || (log.soldAt && log.soldAt.toDate() > stats[log.productId].last)) {
-                        stats[log.productId].last = log.soldAt ? log.soldAt.toDate() : null;
-                    }
-                    if (log.weight) stats[log.productId].weight = log.weight;
-                });
-
-                // שלוף שמות מוצרים
-                const productsSnap = await getDocs(collection(db, "products"));
-                const products = {};
-                productsSnap.forEach(doc => products[doc.id] = doc.data());
-
-                let any = false;
-                list.innerHTML = "";
-                Object.keys(stats).forEach(productId => {
-                    any = true;
-                    const product = products[productId];
-                    // הצגת משקל ליחידה בצורה תקינה
-                    let weightStr = "-";
-                    if (product && product.weight && typeof product.weight === "object" && product.weight.value && product.weight.unit) {
-                        weightStr = `${product.weight.value} ${product.weight.unit}`;
-                    } else if (stats[productId].weight && typeof stats[productId].weight === "object" && stats[productId].weight.value && stats[productId].weight.unit) {
-                        weightStr = `${stats[productId].weight.value} ${stats[productId].weight.unit}`;
-                    } else if (typeof stats[productId].weight === "number") {
-                        weightStr = stats[productId].weight + " ק\"ג";
-                    }
-                    list.innerHTML += `
-                        <div class="border rounded p-4 bg-white shadow flex flex-col gap-2">
-                            <div class="font-bold">${product ? product.name : productId}</div>
-                            <div class="text-sm text-gray-500">סה"כ יחידות שנמכרו: ${stats[productId].total}</div>
-                            <div class="text-sm text-gray-500">משקל ליחידה: ${weightStr}</div>
-                            <div class="text-sm text-gray-500">נמכר לאחרונה: ${stats[productId].last ? formatDate(stats[productId].last) : '-'}</div>
-                        </div>
-                    `;
-                });
-                if (!any) {
-                    list.innerHTML = `<div class="text-center text-gray-500">אין נתונים בטווח התאריכים שנבחר.</div>`;
-                }
-            } catch (e) {
-                list.innerHTML = `<div class="text-red-600">שגיאה בטעינת נתוני המכירות: ${e.message}</div>`;
+            if (snap.empty) {
+                content.innerHTML = `<div class="text-center text-gray-500">אין עדיין הזמנות במערכת.</div>`;
+                return;
             }
+
+            let totalOrders = 0;
+            let completedOrders = 0;
+            let pendingOrders = 0;
+            let ordersThisMonth = 0;
+            let ordersToday = 0;
+            const today = new Date();
+            const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            snap.forEach(doc => {
+                const order = doc.data();
+                totalOrders++;
+                
+                if (order.status === "picked") completedOrders++;
+                if (order.status === "pending" || order.status === "in-progress") pendingOrders++;
+                
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                if (orderDate >= thisMonth) ordersThisMonth++;
+                if (orderDate.toDateString() === today.toDateString()) ordersToday++;
+            });
+
+            let html = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-blue-100 p-4 rounded shadow">
+                        <h3 class="font-bold text-blue-800">סה"כ הזמנות</h3>
+                        <p class="text-2xl font-bold text-blue-900">${totalOrders}</p>
+                    </div>
+                    <div class="bg-green-100 p-4 rounded shadow">
+                        <h3 class="font-bold text-green-800">הזמנות שהושלמו</h3>
+                        <p class="text-2xl font-bold text-green-900">${completedOrders}</p>
+                    </div>
+                    <div class="bg-yellow-100 p-4 rounded shadow">
+                        <h3 class="font-bold text-yellow-800">הזמנות ממתינות</h3>
+                        <p class="text-2xl font-bold text-yellow-900">${pendingOrders}</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded shadow">
+                        <h3 class="font-bold text-purple-800">הזמנות החודש</h3>
+                        <p class="text-2xl font-bold text-purple-900">${ordersThisMonth}</p>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-bold mb-4">הזמנות אחרונות</h3>
+                    <div class="space-y-2">
+            `;
+
+            let count = 0;
+            snap.forEach(doc => {
+                if (count >= 10) return; // הצג רק 10 אחרונות
+                const order = doc.data();
+                const statusText = getStatusText(order.status);
+                const statusColor = getStatusColor(order.status);
+
+                html += `
+                    <div class="border-b pb-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-semibold">הזמנה #${doc.id.substring(0, 6)}</span>
+                                <span class="px-2 py-1 rounded text-xs ${statusColor} ml-2">${statusText}</span>
+                            </div>
+                            <span class="text-sm text-gray-500">${formatDate(order.createdAt)}</span>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            חנות: ${order.storeName || "לא ידוע"} | 
+                            הוזמן ע"י: ${order.createdByName || "לא ידוע"}
+                        </div>
+                    </div>
+                `;
+                count++;
+            });
+
+            html += `</div></div>`;
+            content.innerHTML = html;
+
+        } catch (error) {
+            console.error("Error loading sales stats:", error);
+            content.innerHTML = `<div class="text-red-500 text-center">שגיאה בטעינת הנתונים: ${error.message}</div>`;
         }
-
-        // טען ברירת מחדל
-        const today = new Date();
-        const weekAgo = new Date();
-        weekAgo.setDate(today.getDate() - 7);
-        await loadStats(weekAgo.toISOString().slice(0,10), today.toISOString().slice(0,10));
-
-        filterForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fromDate = document.getElementById('from-date').value;
-            const toDate = document.getElementById('to-date').value;
-            await loadStats(fromDate, toDate);
-        });
     }
 };
+
+function getStatusText(status) {
+    switch (status) {
+        case "pending": return "ממתין לליקוט";
+        case "in-progress": return "בתהליך ליקוט";
+        case "picked": return "הושלם";
+        case "draft": return "טיוטה";
+        default: return status || "לא ידוע";
+    }
+}
+
+function getStatusColor(status) {
+    switch (status) {
+        case "pending": return "bg-yellow-100 text-yellow-800";
+        case "in-progress": return "bg-blue-100 text-blue-800";
+        case "picked": return "bg-green-100 text-green-800";
+        case "draft": return "bg-gray-100 text-gray-800";
+        default: return "bg-gray-100 text-gray-800";
+    }
+}
