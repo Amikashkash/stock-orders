@@ -1,11 +1,81 @@
-import { collection, getDocs, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
 let products = [];
 let shoppingCart = {}; // productId => quantity
+let draftOrderId = null; // Track draft order ID
 
 async function loadProducts(db) {
     const snap = await getDocs(collection(db, "products"));
     products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+// Load cart from localStorage for mobile browsers
+function loadCartFromStorage() {
+    try {
+        const saved = localStorage.getItem('shoppingCart');
+        if (saved) {
+            shoppingCart = JSON.parse(saved);
+        }
+    } catch (e) {
+        console.warn('Could not load cart from localStorage:', e);
+    }
+}
+
+// Save cart to localStorage for mobile browsers
+function saveCartToStorage() {
+    try {
+        localStorage.setItem('shoppingCart', JSON.stringify(shoppingCart));
+    } catch (e) {
+        console.warn('Could not save cart to localStorage:', e);
+    }
+}
+
+// Auto-save function with better mobile support
+let autoSaveTimeout;
+async function autoSaveCart(db, auth) {
+    // Clear previous timeout
+    clearTimeout(autoSaveTimeout);
+    
+    // Save to localStorage immediately for mobile
+    saveCartToStorage();
+    
+    // Debounce database save
+    autoSaveTimeout = setTimeout(async () => {
+        try {
+            await saveDraftOrder(db, auth);
+        } catch (e) {
+            console.warn('Auto-save failed:', e);
+        }
+    }, 1000); // Wait 1 second after last change
+}
+
+async function saveDraftOrder(db, auth) {
+    const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
+    if (items.length === 0) return;
+
+    try {
+        if (!auth.currentUser) return;
+        
+        const orderData = {
+            items: items.map(([productId, quantity]) => ({ productId, quantity })),
+            status: "draft",
+            createdBy: auth.currentUser.uid,
+            createdByName: auth.currentUser.displayName || auth.currentUser.email || "לא ידוע",
+            updatedAt: new Date()
+        };
+
+        if (draftOrderId) {
+            // Update existing draft
+            await updateDoc(doc(db, "orders", draftOrderId), orderData);
+        } else {
+            // Create new draft
+            orderData.createdAt = new Date();
+            const docRef = await addDoc(collection(db, "orders"), orderData);
+            draftOrderId = docRef.id;
+        }
+    } catch (e) {
+        console.warn('Could not save draft order:', e);
+    }
 }
 
 function getBrands(products) {
@@ -31,7 +101,10 @@ function renderCartSummary() {
         <ul class="mb-2">
             ${items.map(([productId, qty]) => {
                 const product = products.find(p => p.id === productId);
-                return `<li>${product ? product.name : productId} - <b>${qty}</b></li>`;
+                const weightStr = (product?.weight?.value && product?.weight?.unit) 
+                    ? ` (${product.weight.value} ${product.weight.unit})` 
+                    : '';
+                return `<li>${product ? product.name : productId}${weightStr} - <b>${qty}</b></li>`;
             }).join('')}
         </ul>
     `;
@@ -69,8 +142,12 @@ async function saveOrder(db, auth) {
             quantityOrdered: qty
         });
     }
-    // איפוס העגלה
+    
+    // Clear cart and localStorage
     Object.keys(shoppingCart).forEach(pid => shoppingCart[pid] = 0);
+    localStorage.removeItem('shoppingCart');
+    draftOrderId = null;
+    
     renderProducts(document.getElementById('brand-filter').value);
     renderCartIndicator();
     renderCartSummary();
@@ -126,7 +203,7 @@ function renderProducts(brand = "") {
     renderCartSummary();
 }
 
-function listenCartButtons() {
+function listenCartButtons(db, auth) {
     document.getElementById('products-list').addEventListener('click', e => {
         const addBtn = e.target.closest('.add-to-cart-btn');
         const decBtn = e.target.closest('.decrease-qty-btn');
@@ -146,6 +223,8 @@ function listenCartButtons() {
         if (changed) {
             renderProducts(document.getElementById('brand-filter').value);
             renderCartIndicator();
+            // Auto-save after each change
+            autoSaveCart(db, auth);
         }
     });
 }
@@ -206,6 +285,10 @@ export const CreateOrderView = {
     },
     init: async function(db, auth, showView) {
         await loadProducts(db);
+        
+        // Load cart from localStorage on mobile browsers
+        loadCartFromStorage();
+        
         const brands = getBrands(products);
         const brandSelect = document.getElementById('brand-filter');
         brands.forEach(brand => {
@@ -214,14 +297,41 @@ export const CreateOrderView = {
             opt.textContent = brand;
             brandSelect.appendChild(opt);
         });
+        
         renderProducts();
         renderCartIndicator();
-        listenCartButtons();
+        renderCartSummary();
+        listenCartButtons(db, auth);
         listenBrandFilter();
+
+        // Add beforeunload event for mobile browsers
+        window.addEventListener('beforeunload', () => {
+            saveCartToStorage();
+        });
+
+        // Add pagehide event specifically for mobile Safari
+        window.addEventListener('pagehide', () => {
+            saveCartToStorage();
+        });
+
+        // Add visibility change event for mobile browsers
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                saveCartToStorage();
+            }
+        });
 
         document.getElementById('save-order-btn').addEventListener('click', async () => {
             await saveOrder(db, auth);
         });
+
+        // Auto-save draft order every 30 seconds if there are items
+        setInterval(() => {
+            const hasItems = Object.values(shoppingCart).some(qty => qty > 0);
+            if (hasItems) {
+                autoSaveCart(db, auth);
+            }
+        }, 30000);
 
         // No need for direct back button handler, handled globally in app.js
         return [];
