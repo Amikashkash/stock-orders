@@ -1,5 +1,32 @@
 import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
+// Global debug function for mobile testing
+window.showMobileDebugInfo = function() {
+    const debugDiv = document.createElement('div');
+    debugDiv.id = 'mobile-debug-overlay';
+    debugDiv.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.8); color: white; padding: 20px; 
+        z-index: 99999; font-size: 12px; overflow-y: auto;
+    `;
+    debugDiv.innerHTML = `
+        <h2>📱 MOBILE DEBUG INFO</h2>
+        <button onclick="document.getElementById('mobile-debug-overlay').remove()" 
+                style="float: right; background: red; color: white; border: none; padding: 5px;">✕ Close</button>
+        <pre>${JSON.stringify({
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            viewport: window.innerWidth + 'x' + window.innerHeight,
+            screen: screen.width + 'x' + screen.height,
+            debugInfo: window.debugInfo || [],
+            currentUser: window.currentUser ? window.currentUser.email : 'Not logged in',
+            localStorage: localStorage ? 'Available' : 'Not available',
+            cookies: document.cookie || 'No cookies'
+        }, null, 2)}</pre>
+    `;
+    document.body.appendChild(debugDiv);
+};
+
 function formatDate(date) {
     if (!date) return "לא ידוע";
     if (date.toDate) return date.toDate().toLocaleDateString('he-IL');
@@ -9,7 +36,12 @@ function formatDate(date) {
 
 export const OrderHistoryView = {
     getHTML: function() {
-        console.log('OrderHistoryView.getHTML called');
+        console.log('🎨 OrderHistoryView.getHTML called');
+        
+        // Add global debug info
+        window.debugInfo = window.debugInfo || [];
+        window.debugInfo.push(`🎨 getHTML called at ${new Date().toLocaleTimeString()}`);
+        
         return `
             <div>
                 <div class="flex items-center mb-6">
@@ -18,13 +50,20 @@ export const OrderHistoryView = {
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800 mr-2">היסטוריית הזמנות</h2>
                 </div>
-                <div style="background: yellow; padding: 10px; margin: 10px 0; font-size: 12px;">
-                    <strong>DEBUG INFO:</strong><br>
-                    Time: ${new Date().toLocaleTimeString()}<br>
-                    User Agent: ${navigator.userAgent}<br>
-                    Screen: ${screen.width}x${screen.height}<br>
-                    Viewport: ${window.innerWidth}x${window.innerHeight}<br>
-                    Connection: ${navigator.connection ? navigator.connection.effectiveType : 'unknown'}
+                <div style="background: yellow; padding: 10px; margin: 10px 0; font-size: 12px; position: relative; z-index: 9999;">
+                    <strong>🔍 DEBUG INFO - MOBILE TEST:</strong><br>
+                    ⏰ Time: ${new Date().toLocaleTimeString()}<br>
+                    📱 User Agent: ${navigator.userAgent.substring(0, 100)}...<br>
+                    📺 Screen: ${screen.width}x${screen.height}<br>
+                    🖼️ Viewport: ${window.innerWidth}x${window.innerHeight}<br>
+                    🌐 Connection: ${navigator.connection ? navigator.connection.effectiveType : 'unknown'}<br>
+                    🏠 URL: ${window.location.href}<br>
+                    📂 Protocol: ${window.location.protocol}<br>
+                    💾 Local Storage: ${localStorage ? 'Available' : 'NOT Available'}<br>
+                    🍪 Cookies: ${document.cookie ? 'Available' : 'NOT Available'}<br>
+                    <button onclick="window.showMobileDebugInfo()" style="background: red; color: white; padding: 5px; margin-top: 5px; border: none; border-radius: 3px;">
+                        🐛 Show Full Debug Info
+                    </button>
                 </div>
                 <div id="order-history-list" class="space-y-4">
                     <div class="text-center text-gray-500">טוען הזמנות...</div>
@@ -33,18 +72,30 @@ export const OrderHistoryView = {
         `;
     },
     init: async function(db, showView) {
-        console.log('OrderHistoryView.init called with:', db, showView);
+        console.log('🚀 OrderHistoryView.init called with:', db, showView);
+        
+        // Add global debug info
+        window.debugInfo = window.debugInfo || [];
+        window.debugInfo.push(`📱 MOBILE DEBUG: init called at ${new Date().toLocaleTimeString()}`);
+        
         const list = document.getElementById('order-history-list');
         if (!list) {
-            console.error('Could not find order-history-list element');
+            console.error('❌ Could not find order-history-list element');
+            window.debugInfo.push('❌ ERROR: order-history-list element not found');
             return;
         }
         
         list.innerHTML = `
+            <div style="background: red; color: white; padding: 10px; margin: 10px 0; font-size: 14px; font-weight: bold;">
+                🔥 INIT FUNCTION CALLED ON MOBILE! 🔥<br>
+                Time: ${new Date().toLocaleTimeString()}
+            </div>
             <div class="text-center text-blue-500">DEBUG: init function started...</div>
             <div style="background: lightblue; padding: 5px; margin: 5px 0; font-size: 12px;">
-                Auth check: ${window.currentUser ? 'User logged in: ' + window.currentUser.email : 'No user logged in'}<br>
-                DB check: ${db ? 'Database connected' : 'Database NOT connected'}
+                🔐 Auth check: ${window.currentUser ? 'User logged in: ' + window.currentUser.email : 'No user logged in'}<br>
+                🗄️ DB check: ${db ? 'Database connected' : 'Database NOT connected'}<br>
+                📍 Window location: ${window.location.href}<br>
+                🔧 Debug array length: ${window.debugInfo ? window.debugInfo.length : 'undefined'}
             </div>
         `;
         
