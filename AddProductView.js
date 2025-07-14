@@ -44,6 +44,7 @@ async function handleAddProduct(db, form) {
             createdAt: serverTimestamp()
         });
         showMessage(messageArea, 'המוצר נוסף בהצלחה!', false);
+        window.showSuccess('המוצר נוסף בהצלחה למערכת!');
         form.reset();
     } catch (error) {
         console.error("Error adding document: ", error);
