@@ -17,11 +17,9 @@ export const OrderHistoryView = {
                     </button>
                     <h2 class="text-2xl font-semibold text-gray-800 mr-2">היסטוריית הזמנות</h2>
                 </div>
-                <!-- ✅ CLEAN VERSION v3 - NO DEBUG ✅ -->
-                <div style="background: green; color: white; padding: 5px; text-align: center; font-weight: bold;">
-                    ✅ CORRECT FILE LOADED - NO DEBUG - ${new Date().toLocaleTimeString()} ✅
-                </div>
                 <div id="order-history-list" class="space-y-4">
+                    <div class="text-center text-gray-500">טוען הזמנות...</div>
+                </div>
                     <div class="text-center text-gray-500">טוען הזמנות...</div>
                 </div>
             </div>
