@@ -2,12 +2,7 @@ import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www
 
 let products = [];
 let shoppingCart = {}; // productId => quantity
-<<<<<<< HEAD
 let draftOrderId = null; // Track draft order ID
-=======
-let packageModePerProduct = {}; // productId => boolean (האם מוצר זה מוזמן לפי מארז)
-
-// פונקציות לשמירת העגלה ומטא-דאטה
 function saveCartToStorage() {
     try {
         const cartData = {
@@ -71,32 +66,10 @@ function clearCartFromStorage() {
         console.warn('Failed to clear cart from localStorage:', e);
     }
 }
->>>>>>> 43770c0a62e482398958ad7fbde272291d9a488c
 
 async function loadProducts(db) {
     const snap = await getDocs(collection(db, "products"));
     products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-// Load cart from localStorage for mobile browsers
-function loadCartFromStorage() {
-    try {
-        const saved = localStorage.getItem('shoppingCart');
-        if (saved) {
-            shoppingCart = JSON.parse(saved);
-        }
-    } catch (e) {
-        console.warn('Could not load cart from localStorage:', e);
-    }
-}
-
-// Save cart to localStorage for mobile browsers
-function saveCartToStorage() {
-    try {
-        localStorage.setItem('shoppingCart', JSON.stringify(shoppingCart));
-    } catch (e) {
-        console.warn('Could not save cart to localStorage:', e);
-    }
 }
 
 // Auto-save function with better mobile support
@@ -188,24 +161,20 @@ function renderCartSummary() {
         <ul class="mb-4">
             ${items.map(([productId, qty]) => {
                 const product = products.find(p => p.id === productId);
-<<<<<<< HEAD
-                const weightStr = (product?.weight?.value && product?.weight?.unit) 
-                    ? ` (${product.weight.value} ${product.weight.unit})` 
-                    : '';
-                return `<li>${product ? product.name : productId}${weightStr} - <b>${qty}</b></li>`;
-=======
                 const isPackageMode = packageModePerProduct[productId] || false;
                 const packageQty = product?.packageQuantity || 1;
                 const totalUnits = isPackageMode ? qty * packageQty : qty;
                 const unitText = isPackageMode ? "מארז" : "יח'";
+                const weightStr = (product?.weight?.value && product?.weight?.unit) 
+                    ? ` (${product.weight.value} ${product.weight.unit})` 
+                    : '';
                 const typeIndicator = isPackageMode 
                     ? `<span class="order-type-indicator order-type-package">מארז</span>`
                     : `<span class="order-type-indicator order-type-unit">יחידה</span>`;
                 const displayText = isPackageMode && packageQty > 1 
-                    ? `${product ? product.name : productId} - <b>${qty}</b> ${unitText} (${totalUnits} יח') ${typeIndicator}`
-                    : `${product ? product.name : productId} - <b>${qty}</b> ${unitText} ${typeIndicator}`;
+                    ? `${product ? product.name : productId}${weightStr} - <b>${qty}</b> ${unitText} (${totalUnits} יח') ${typeIndicator}`
+                    : `${product ? product.name : productId}${weightStr} - <b>${qty}</b> ${unitText} ${typeIndicator}`;
                 return `<li>${displayText}</li>`;
->>>>>>> 43770c0a62e482398958ad7fbde272291d9a488c
             }).join('')}
         </ul>
         <div class="border-t pt-2 text-sm text-gray-600">
@@ -281,13 +250,9 @@ async function saveOrder(db, auth) {
     
     // Clear cart and localStorage
     Object.keys(shoppingCart).forEach(pid => shoppingCart[pid] = 0);
-<<<<<<< HEAD
-    localStorage.removeItem('shoppingCart');
+    clearCartFromStorage(); // ניקוי מהאחסון המקומי
     draftOrderId = null;
     
-=======
-    clearCartFromStorage(); // ניקוי מהאחסון המקומי
->>>>>>> 43770c0a62e482398958ad7fbde272291d9a488c
     renderProducts(document.getElementById('brand-filter').value);
     renderCartIndicator();
     renderCartSummary();
@@ -608,17 +573,6 @@ export const CreateOrderView = {
             await saveOrder(db, auth);
         });
 
-<<<<<<< HEAD
-        // Auto-save draft order every 30 seconds if there are items
-        setInterval(() => {
-            const hasItems = Object.values(shoppingCart).some(qty => qty > 0);
-            if (hasItems) {
-                autoSaveCart(db, auth);
-            }
-        }, 30000);
-
-        // No need for direct back button handler, handled globally in app.js
-=======
         // חיבור כפתור FAB
         document.getElementById('fab-save-btn').addEventListener('click', async () => {
             await saveOrder(db, auth);
@@ -646,7 +600,15 @@ export const CreateOrderView = {
             }
         });
 
->>>>>>> 43770c0a62e482398958ad7fbde272291d9a488c
+        // Auto-save draft order every 30 seconds if there are items
+        setInterval(() => {
+            const hasItems = Object.values(shoppingCart).some(qty => qty > 0);
+            if (hasItems) {
+                autoSaveCart(db, auth);
+            }
+        }, 30000);
+
+        // No need for direct back button handler, handled globally in app.js
         return [];
     }
 };
