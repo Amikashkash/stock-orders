@@ -1,22 +1,18 @@
 const CACHE_NAME = 'stock-orders-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/DashboardView.js',
-  '/CreateOrderView.js',
-  '/PickingOrdersView.js',
-  '/PickOrderDetailsView.js',
-  '/SalesStatsView.js',
-  '/OrderHistoryView.js',
-  '/AddProductView.js',
-  '/EditProductView.js',
-  '/AuthView.js',
-  'https://cdn.tailwindcss.com/3.3.0',
-  'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js',
-  'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js',
-  'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js'
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './DashboardView.js',
+  './CreateOrderView.js',
+  './PickingOrdersView.js',
+  './PickOrderDetailsView.js',
+  './SalesStatsView.js',
+  './OrderHistoryView.js',
+  './AddProductView.js',
+  './EditProductView.js',
+  './AuthView.js'
 ];
 
 // Install event - cache resources
