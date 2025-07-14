@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v1';
+const CACHE_NAME = 'stock-orders-v2';
 const urlsToCache = [
   './',
   './index.html',
