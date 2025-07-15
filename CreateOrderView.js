@@ -2,6 +2,7 @@ import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www
 
 let products = [];
 let shoppingCart = {}; // productId => quantity
+let packageModePerProduct = {}; // productId => boolean (package mode)
 let draftOrderId = null; // Track draft order ID
 function saveCartToStorage() {
     try {
@@ -308,15 +309,29 @@ function renderProducts(brand = "") {
     container.innerHTML = "";
     
     if (filtered.length === 0) {
+        console.warn('⚠️ renderProducts: No products to display after filtering');
+        console.log('📊 Debug info:', {
+            totalProducts: products.length,
+            brandFilter: brand,
+            sampleProducts: products.slice(0, 3).map(p => ({ id: p.id, name: p.name, brand: p.brand }))
+        });
+        
         container.innerHTML = `
-            <div style="background: yellow; padding: 15px; text-align: center; border-radius: 8px;">
+            <div style="background: yellow; padding: 15px; text-align: center; border-radius: 8px; margin: 20px;">
                 <h3>🔍 DEBUG: No Products Found</h3>
-                <p>Total products in database: ${products.length}</p>
-                <p>Brand filter: "${brand}"</p>
-                <p>Check console for more details</p>
+                <p><strong>Total products in database:</strong> ${products.length}</p>
+                <p><strong>Brand filter:</strong> "${brand}"</p>
+                ${products.length === 0 ? 
+                    '<p style="color: red;"><strong>⚠️ No products found in database!</strong></p>' :
+                    '<p style="color: blue;">Products exist but filtered out</p>'
+                }
+                <p style="font-size: 12px; margin-top: 10px;">Check console for more details</p>
+                <button onclick="console.log('All products:', window.products = products); alert('Products logged to console')" 
+                        style="background: blue; color: white; padding: 5px 10px; border: none; border-radius: 3px; margin-top: 10px;">
+                    Log Products to Console
+                </button>
             </div>
         `;
-        console.warn('⚠️ renderProducts: No products to display after filtering');
         return;
     }
     
