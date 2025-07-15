@@ -68,8 +68,29 @@ function clearCartFromStorage() {
 }
 
 async function loadProducts(db) {
-    const snap = await getDocs(collection(db, "products"));
-    products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log('🔍 loadProducts: Starting to load products...');
+    try {
+        if (!db) {
+            console.error('❌ loadProducts: Database not provided!');
+            return;
+        }
+        
+        console.log('🔍 loadProducts: Getting products collection...');
+        const snap = await getDocs(collection(db, "products"));
+        console.log(`🔍 loadProducts: Found ${snap.size} products in database`);
+        
+        products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('🔍 loadProducts: Products loaded:', products.length);
+        
+        if (products.length === 0) {
+            console.warn('⚠️ loadProducts: No products found in database!');
+        } else {
+            console.log('✅ loadProducts: Sample product:', products[0]);
+        }
+    } catch (error) {
+        console.error('❌ loadProducts: Error loading products:', error);
+        console.error('❌ loadProducts: Error details:', error.message, error.code);
+    }
 }
 
 // Auto-save function with better mobile support
@@ -271,9 +292,34 @@ async function saveOrder(db, auth) {
 }
 // start of updated code
 function renderProducts(brand = "") {
+    console.log('🎨 renderProducts: Starting to render products...');
+    console.log(`🎨 renderProducts: Total products: ${products.length}`);
+    console.log(`🎨 renderProducts: Brand filter: "${brand}"`);
+    
     const container = document.getElementById('products-list');
+    if (!container) {
+        console.error('❌ renderProducts: Could not find products-list container!');
+        return;
+    }
+    
     let filtered = brand ? products.filter(p => p.brand === brand) : products;
+    console.log(`🎨 renderProducts: Filtered products: ${filtered.length}`);
+    
     container.innerHTML = "";
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="background: yellow; padding: 15px; text-align: center; border-radius: 8px;">
+                <h3>🔍 DEBUG: No Products Found</h3>
+                <p>Total products in database: ${products.length}</p>
+                <p>Brand filter: "${brand}"</p>
+                <p>Check console for more details</p>
+            </div>
+        `;
+        console.warn('⚠️ renderProducts: No products to display after filtering');
+        return;
+    }
+    
     filtered.forEach(product => {
         const qty = shoppingCart[product.id] || 0;
         const isPackageMode = packageModePerProduct[product.id] || false;
