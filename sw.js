@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v6-network-first';
+const CACHE_NAME = 'stock-orders-v7-fixed-sw';
 const urlsToCache = [
   './',
   './index.html',
@@ -34,26 +34,37 @@ self.addEventListener('install', event => {
 
 // Fetch event - network first for JS files, cache first for others
 self.addEventListener('fetch', event => {
+  // Skip non-GET requests and chrome-extension requests
+  if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+  
+  // Skip external domains that cause CORS issues
   const url = new URL(event.request.url);
+  if (url.hostname !== location.hostname && url.hostname !== 'www.gstatic.com' && url.hostname !== 'cdn.tailwindcss.com') {
+    return;
+  }
   
   // For JavaScript files, always try network first
   if (event.request.url.endsWith('.js')) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // Clone the response
-          const responseToCache = response.clone();
-          
-          // Add to cache
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          
+          // Only cache successful responses
+          if (response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              })
+              .catch(error => {
+                console.log('Cache put failed:', error);
+              });
+          }
           return response;
         })
-        .catch(() => {
-          // If network fails, try cache
+        .catch(error => {
+          console.log('Network failed, trying cache:', error);
           return caches.match(event.request);
         })
     );
@@ -64,16 +75,31 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Return cached version or fetch from network
         if (response) {
           return response;
         }
-        return fetch(event.request).catch(() => {
-          // If both cache and network fail, return a basic offline page
-          if (event.request.destination === 'document') {
-            return caches.match('/index.html');
-          }
-        });
+        return fetch(event.request)
+          .then(response => {
+            // Only cache successful responses
+            if (response.status === 200) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME)
+                .then(cache => {
+                  cache.put(event.request, responseToCache);
+                })
+                .catch(error => {
+                  console.log('Cache put failed:', error);
+                });
+            }
+            return response;
+          })
+          .catch(error => {
+            console.log('Both cache and network failed:', error);
+            if (event.request.destination === 'document') {
+              return caches.match('/index.html');
+            }
+            throw error;
+          });
       })
   );
 });
