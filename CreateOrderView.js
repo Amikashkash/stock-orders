@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, doc, getDoc, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
 let products = [];
 let shoppingCart = {}; // productId => quantity
@@ -234,15 +234,40 @@ async function saveOrder(db, auth) {
         }
     }
 
-    const order = {
-        createdAt: new Date(),
-        createdBy: auth.currentUser ? auth.currentUser.uid : null,
-        storeName,
-        createdByName,
-        status: "pending",
-        notes: document.getElementById('order-notes')?.value?.trim() || ""
-    };
-    const orderRef = await addDoc(collection(db, "orders"), order);
+    // Get next order number using transaction
+    let orderNumber;
+    let orderRef;
+    
+    await runTransaction(db, async (transaction) => {
+        const counterRef = doc(db, "counters", "orderCounter");
+        const counterDoc = await transaction.get(counterRef);
+        
+        if (!counterDoc.exists()) {
+            // Initialize counter if it doesn't exist
+            orderNumber = 1;
+            transaction.set(counterRef, { count: 1 });
+        } else {
+            // Increment counter
+            const currentCount = counterDoc.data().count || 0;
+            orderNumber = currentCount + 1;
+            transaction.update(counterRef, { count: orderNumber });
+        }
+        
+        // Create order with display number
+        const order = {
+            createdAt: new Date(),
+            createdBy: auth.currentUser ? auth.currentUser.uid : null,
+            storeName,
+            createdByName,
+            status: "pending",
+            notes: document.getElementById('order-notes')?.value?.trim() || "",
+            orderNumber: orderNumber, // Sequential display number
+            displayId: `ORD-${String(orderNumber).padStart(4, '0')}` // Pretty display ID like ORD-0001
+        };
+        
+        orderRef = doc(collection(db, "orders"));
+        transaction.set(orderRef, order);
+    });
     
     let itemCounter = 0;
     for (const [productId, qty] of items) {
@@ -281,7 +306,7 @@ async function saveOrder(db, auth) {
     // גלילה למעלה אחרי שמירה מוצלחת
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    window.showSuccess("ההזמנה נשמרה בהצלחה!");
+    window.showSuccess(`הזמנה ${`ORD-${String(orderNumber).padStart(4, '0')}`} נשמרה בהצלחה!`);
 }
 // start of updated code
 function renderProducts(brand = "") {

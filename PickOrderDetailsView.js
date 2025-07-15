@@ -28,7 +28,9 @@ export const PickOrderDetailsView = {
                     <button data-action="show-view" data-view="${backView}" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100" title="${backTitle}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
-                    <h2 class="text-2xl font-semibold text-gray-800 mr-2">פרטי הזמנת ליקוט</h2>
+                    <h2 class="text-2xl font-semibold text-gray-800 mr-2">
+                        <span id="order-header-title">פרטי הזמנת ליקוט</span>
+                    </h2>
                     ${!readOnly ? `<div class="mr-auto text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">התקדמות נשמרת אוטומטית</div>` : ''}
                 </div>
                 
@@ -82,6 +84,13 @@ export const PickOrderDetailsView = {
             const orderSnap = await getDoc(doc(db, "orders", orderId));
             if (orderSnap.exists()) {
                 orderData = orderSnap.data();
+                
+                // עדכון כותרת עם מזהה הזמנה
+                const orderHeaderTitle = document.getElementById('order-header-title');
+                if (orderHeaderTitle && orderData) {
+                    const displayId = orderData.displayId || `הזמנה #${orderId.substring(0, 6)}`;
+                    orderHeaderTitle.textContent = `פרטי ליקוט - ${displayId}`;
+                }
             }
         } catch (e) {
             console.warn('Failed to load order data:', e);

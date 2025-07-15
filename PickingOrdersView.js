@@ -55,7 +55,7 @@ export const PickingOrdersView = {
                         <div class="flex justify-between items-center">
                             <div>
                                 <div class="font-bold flex items-center">
-                                    הזמנה #${orderId.substring(0, 6)}
+                                    ${order.displayId || `הזמנה #${orderId.substring(0, 6)}`}
                                     ${progressIndicator}
                                 </div>
                                 <div class="text-sm text-gray-500">חנות: ${storeName}</div>
