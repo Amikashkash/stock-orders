@@ -60,7 +60,7 @@
     </div>
 
     <!-- טעינת הלוגיקה של האפליקציה מהקובץ החיצוני -->
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=8"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>
@@ -68,8 +68,26 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=8');
                     console.log('SW registered: ', registration);
+                    
+                    // Force update if there's a waiting service worker
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({type: 'SKIP_WAITING'});
+                    }
+                    
+                    // Listen for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New update available
+                                if (confirm('גרסה חדשה זמינה! האם לרענן את הדף?')) {
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    });
                 } catch (registrationError) {
                     console.log('SW registration failed: ', registrationError);
                 }
