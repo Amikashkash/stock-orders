@@ -155,6 +155,37 @@ function setupFiltersAndSearch() {
             filterProducts();
         });
     }
+    
+    // כפתור ניקוי מטמון
+    const clearCacheBtn = document.getElementById('clear-cache-btn');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', async () => {
+            if (confirm('האם אתה בטוח שברצונך לנקות את המטמון? הדף יטען מחדש.')) {
+                try {
+                    // Clear all caches
+                    if ('caches' in window) {
+                        const cacheNames = await caches.keys();
+                        await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    }
+                    
+                    // Clear localStorage
+                    localStorage.clear();
+                    
+                    // Unregister service worker
+                    if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(registrations.map(reg => reg.unregister()));
+                    }
+                    
+                    // Force reload
+                    window.location.reload(true);
+                } catch (error) {
+                    console.error('Error clearing cache:', error);
+                    alert('שגיאה בניקוי המטמון. נסה לרענן את הדף ידנית.');
+                }
+            }
+        });
+    }
 }
 
 function updateBrandFilter() {
@@ -261,6 +292,7 @@ export const DashboardView = {
                         <button data-action="show-view" data-view="sales-stats" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors">סטטיסטיקת מכירות</button>
                         <button data-action="show-view" data-view="order-history" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition-colors w-full sm:w-auto">היסטוריית הזמנות</button>
                         <button data-action="show-view" data-view="add-product" class="bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">הוסף מוצר</button>
+                        <button id="clear-cache-btn" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-red-700 transition-colors w-full sm:w-auto text-sm">נקה מטמון</button>
                     </div>
                 </div>
                 
