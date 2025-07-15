@@ -69,28 +69,20 @@ function clearCartFromStorage() {
 }
 
 async function loadProducts(db) {
-    console.log('🔍 loadProducts: Starting to load products...');
     try {
         if (!db) {
-            console.error('❌ loadProducts: Database not provided!');
+            console.error('Database not provided to loadProducts');
             return;
         }
         
-        console.log('🔍 loadProducts: Getting products collection...');
         const snap = await getDocs(collection(db, "products"));
-        console.log(`🔍 loadProducts: Found ${snap.size} products in database`);
-        
         products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('🔍 loadProducts: Products loaded:', products.length);
         
         if (products.length === 0) {
-            console.warn('⚠️ loadProducts: No products found in database!');
-        } else {
-            console.log('✅ loadProducts: Sample product:', products[0]);
+            console.warn('No products found in database');
         }
     } catch (error) {
-        console.error('❌ loadProducts: Error loading products:', error);
-        console.error('❌ loadProducts: Error details:', error.message, error.code);
+        console.error('Error loading products:', error);
     }
 }
 
@@ -293,43 +285,20 @@ async function saveOrder(db, auth) {
 }
 // start of updated code
 function renderProducts(brand = "") {
-    console.log('🎨 renderProducts: Starting to render products...');
-    console.log(`🎨 renderProducts: Total products: ${products.length}`);
-    console.log(`🎨 renderProducts: Brand filter: "${brand}"`);
-    
     const container = document.getElementById('products-list');
     if (!container) {
-        console.error('❌ renderProducts: Could not find products-list container!');
+        console.error('Could not find products-list container');
         return;
     }
     
     let filtered = brand ? products.filter(p => p.brand === brand) : products;
-    console.log(`🎨 renderProducts: Filtered products: ${filtered.length}`);
-    
     container.innerHTML = "";
     
     if (filtered.length === 0) {
-        console.warn('⚠️ renderProducts: No products to display after filtering');
-        console.log('📊 Debug info:', {
-            totalProducts: products.length,
-            brandFilter: brand,
-            sampleProducts: products.slice(0, 3).map(p => ({ id: p.id, name: p.name, brand: p.brand }))
-        });
-        
         container.innerHTML = `
-            <div style="background: yellow; padding: 15px; text-align: center; border-radius: 8px; margin: 20px;">
-                <h3>🔍 DEBUG: No Products Found</h3>
-                <p><strong>Total products in database:</strong> ${products.length}</p>
-                <p><strong>Brand filter:</strong> "${brand}"</p>
-                ${products.length === 0 ? 
-                    '<p style="color: red;"><strong>⚠️ No products found in database!</strong></p>' :
-                    '<p style="color: blue;">Products exist but filtered out</p>'
-                }
-                <p style="font-size: 12px; margin-top: 10px;">Check console for more details</p>
-                <button onclick="console.log('All products:', window.products = products); alert('Products logged to console')" 
-                        style="background: blue; color: white; padding: 5px 10px; border: none; border-radius: 3px; margin-top: 10px;">
-                    Log Products to Console
-                </button>
+            <div class="text-center text-gray-500 p-8">
+                <p>לא נמצאו מוצרים</p>
+                ${brand ? `<p class="text-sm">סנן לפי מותג: ${brand}</p>` : ''}
             </div>
         `;
         return;
