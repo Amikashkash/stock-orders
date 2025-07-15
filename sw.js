@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v3-force-refresh';
+const CACHE_NAME = 'stock-orders-v4-force-update';
 const urlsToCache = [
   './',
   './index.html',
