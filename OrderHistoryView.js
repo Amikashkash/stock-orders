@@ -20,8 +20,7 @@ export const OrderHistoryView = {
                 <div id="order-history-list" class="space-y-4">
                     <div class="text-center text-gray-500">טוען הזמנות...</div>
                 </div>
-                    <div class="text-center text-gray-500">טוען הזמנות...</div>
-                </div>
+            </div>
             </div>
         `;
     },

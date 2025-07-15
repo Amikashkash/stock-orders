@@ -19,10 +19,8 @@ async function loadProductsMap(db) {
 
 export const PickOrderDetailsView = {
     getHTML: function(orderId, orderCache, readOnly = false, fromView = 'picking-orders') {
-        console.log('DEBUG: PickOrderDetailsView.getHTML called with fromView:', fromView);
         const backView = fromView === 'order-history' ? 'order-history' : 'picking-orders';
         const backTitle = fromView === 'order-history' ? 'חזרה להיסטוריית הזמנות' : 'חזרה להזמנות לליקוט';
-        console.log('DEBUG: backView set to:', backView);
         
         return `
             <div>

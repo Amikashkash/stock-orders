@@ -1,11 +1,8 @@
 import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-// ✅ FIXED VERSION - v4 - packageModePerProduct defined ✅
-console.log('🔥 CreateOrderView FIXED VERSION v4 loaded at', new Date().toLocaleTimeString());
-
 let products = [];
 let shoppingCart = {}; // productId => quantity
-let packageModePerProduct = {}; // productId => boolean (package mode) - FIXED!
+let packageModePerProduct = {}; // productId => boolean (package mode)
 let draftOrderId = null; // Track draft order ID
 function saveCartToStorage() {
     try {
@@ -507,9 +504,6 @@ export const CreateOrderView = {
                 </div>
                 
                 <div class="mb-4">
-                    <div style="background: red; color: white; padding: 10px; text-align: center; font-weight: bold; margin-bottom: 10px;">
-                        🔥 FIXED VERSION v4 - ${new Date().toLocaleTimeString()} 🔥
-                    </div>
                     <label for="brand-filter" class="font-semibold">סנן לפי מותג:</label>
                     <select id="brand-filter" class="input-style ml-2">
                         <option value="">הצג הכל</option>
