@@ -61,7 +61,7 @@ export const PickOrderDetailsView = {
                 </div>
                 ` : ''}
                 
-                <div id="pick-order-details-list" class="space-y-4"></div>
+                <div id="pick-order-details-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 <button id="complete-pick-btn" class="bg-green-600 text-white px-4 py-2 rounded mt-4" style="display:none">סיים ליקוט</button>
             </div>
         `;
@@ -115,6 +115,27 @@ export const PickOrderDetailsView = {
                     packageQuantity: item.packageQuantity || null
                 });
             });
+                // Sort items by brand/category (brand is the same as category)
+            localItems.sort((a, b) => {
+                const productA = productsMap[a.productId];
+                const productB = productsMap[b.productId];
+                
+                const brandA = (productA?.brand || productA?.category || "").toLowerCase();
+                const brandB = (productB?.brand || productB?.category || "").toLowerCase();
+                
+                // First sort by brand/category
+                if (brandA < brandB) return -1;
+                if (brandA > brandB) return 1;
+                
+                // If same brand, sort by product name
+                const nameA = (productA?.name || "").toLowerCase();
+                const nameB = (productB?.name || "").toLowerCase();
+                
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                
+                return 0;
+            });        
 
             if (localItems.length === 0) {
                 const emptyMessage = `
@@ -244,11 +265,23 @@ export const PickOrderDetailsView = {
     }
     
     let html = "";
-    localItems.forEach(item => {
+    let currentBrand = "";
+
+    localItems.forEach((item, index) => {
         const product = productsMap[item.productId];
         const productName = product?.name || "מוצר לא ידוע";
         const brand = product?.brand ? ` (${product.brand})` : "";
         const imageUrl = product?.imageUrl || product?.image || "";
+
+            // Add brand header if this is a new brand group
+        if (brand !== currentBrand) {
+            currentBrand = brand;
+            html += `
+                <div class="col-span-full bg-blue-50 border-l-4 border-blue-400 p-3 mb-2 rounded-r-lg">
+                    <h3 class="font-bold text-blue-800 text-lg">${brand}</h3>
+                </div>
+            `;
+        }
 
         // Show weight/size: expects product.weight = { value: 2, unit: "ק\"ג" }
         let weightDisplay = "";
