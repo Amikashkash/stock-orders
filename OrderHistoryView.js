@@ -57,7 +57,7 @@ export const OrderHistoryView = {
                     <div class="border rounded p-4 bg-white shadow">
                         <div class="flex justify-between items-start mb-2">
                             <div>
-                                <div class="font-bold">${order.displayId || `הזמנה #${docSnap.id.substring(0, 6)}`}</div>
+                                <div class="font-bold">הזמנה #${docSnap.id.substring(0, 6)}</div>
                                 <div class="text-sm text-gray-500">חנות: ${storeName}</div>
                                 <div class="text-sm text-gray-500">הוזמנה ע"י: ${order.createdByName || "לא ידוע"}</div>
                                 <div class="text-sm text-gray-500">תאריך: ${formatDate(order.createdAt)}</div>

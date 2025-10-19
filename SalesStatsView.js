@@ -28,27 +28,17 @@ export const SalesStatsView = {
         content.innerHTML = `<div class="text-center text-gray-500">טוען נתונים...</div>`;
 
         try {
-            // שאילתה לכל ההזמנות
-            const ordersQuery = query(
+            // שאילתה לכל ההזמנות (לא רק שהושלמו)
+            const q = query(
                 collection(db, "orders"), 
                 orderBy("createdAt", "desc")
             );
-            const ordersSnap = await getDocs(ordersQuery);
+            const snap = await getDocs(q);
 
-            // שאילתה לכל המוצרים
-            const productsQuery = collection(db, "products");
-            const productsSnap = await getDocs(productsQuery);
-
-            if (ordersSnap.empty) {
+            if (snap.empty) {
                 content.innerHTML = `<div class="text-center text-gray-500">אין עדיין הזמנות במערכת.</div>`;
                 return;
             }
-
-            // יצירת מפה של מוצרים
-            const productsMap = {};
-            productsSnap.forEach(doc => {
-                productsMap[doc.id] = doc.data();
-            });
 
             let totalOrders = 0;
             let completedOrders = 0;
@@ -58,12 +48,8 @@ export const SalesStatsView = {
             const today = new Date();
             const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-            // מפה לאיסוף נתוני מוצרים
-            const productStats = {};
-
-            // עיבוד ההזמנות
-            for (const orderDoc of ordersSnap.docs) {
-                const order = orderDoc.data();
+            snap.forEach(doc => {
+                const order = doc.data();
                 totalOrders++;
                 
                 if (order.status === "picked") completedOrders++;
@@ -72,36 +58,7 @@ export const SalesStatsView = {
                 const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
                 if (orderDate >= thisMonth) ordersThisMonth++;
                 if (orderDate.toDateString() === today.toDateString()) ordersToday++;
-
-                // איסוף נתוני פריטים להזמנה הזאת
-                try {
-                    const itemsQuery = collection(db, "orders", orderDoc.id, "orderItems");
-                    const itemsSnap = await getDocs(itemsQuery);
-                    
-                    itemsSnap.forEach(itemDoc => {
-                        const item = itemDoc.data();
-                        const productId = item.productId;
-                        const quantity = item.quantityOrdered || 0;
-                        
-                        if (!productStats[productId]) {
-                            productStats[productId] = {
-                                totalOrdered: 0,
-                                ordersCount: 0,
-                                lastOrderDate: null
-                            };
-                        }
-                        
-                        productStats[productId].totalOrdered += quantity;
-                        productStats[productId].ordersCount++;
-                        
-                        if (!productStats[productId].lastOrderDate || orderDate > productStats[productId].lastOrderDate) {
-                            productStats[productId].lastOrderDate = orderDate;
-                        }
-                    });
-                } catch (error) {
-                    console.warn("Error loading items for order:", orderDoc.id, error);
-                }
-            }
+            });
 
             let html = `
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -122,90 +79,37 @@ export const SalesStatsView = {
                         <p class="text-2xl font-bold text-purple-900">${ordersThisMonth}</p>
                     </div>
                 </div>
-                
                 <div class="bg-white p-4 rounded shadow">
-                    <h3 class="font-bold mb-4 text-lg">הזמנות לפי מוצר</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full table-auto">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-4 py-2 text-right font-semibold text-gray-700">מוצר</th>
-                                    <th class="px-4 py-2 text-right font-semibold text-gray-700">מותג</th>
-                                    <th class="px-4 py-2 text-center font-semibold text-gray-700">כמות כוללת</th>
-                                    <th class="px-4 py-2 text-center font-semibold text-gray-700">מספר הזמנות</th>
-                                    <th class="px-4 py-2 text-center font-semibold text-gray-700">הזמנה אחרונה</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <h3 class="font-bold mb-4">הזמנות אחרונות</h3>
+                    <div class="space-y-2">
             `;
 
-            // מיון המוצרים לפי כמות כוללת (מהגבוה לנמוך)
-            const sortedProducts = Object.entries(productStats)
-                .sort(([,a], [,b]) => b.totalOrdered - a.totalOrdered);
+            let count = 0;
+            snap.forEach(doc => {
+                if (count >= 10) return; // הצג רק 10 אחרונות
+                const order = doc.data();
+                const statusText = getStatusText(order.status);
+                const statusColor = getStatusColor(order.status);
 
-            if (sortedProducts.length === 0) {
                 html += `
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                            אין עדיין נתוני הזמנות למוצרים
-                        </td>
-                    </tr>
-                `;
-            } else {
-                sortedProducts.forEach(([productId, stats]) => {
-                    const product = productsMap[productId];
-                    const productName = product?.name || `מוצר ${productId}`;
-                    const productBrand = product?.brand || "לא צויין";
-                    const lastOrderDateStr = stats.lastOrderDate ? 
-                        stats.lastOrderDate.toLocaleDateString('he-IL') : "לא ידוע";
-                    
-                    // צבע רקע לפי פופולריות
-                    let rowClass = "";
-                    if (stats.totalOrdered >= 50) {
-                        rowClass = "bg-green-50";
-                    } else if (stats.totalOrdered >= 20) {
-                        rowClass = "bg-yellow-50";
-                    } else if (stats.totalOrdered >= 10) {
-                        rowClass = "bg-blue-50";
-                    }
-
-                    html += `
-                        <tr class="${rowClass} border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium">${productName}</td>
-                            <td class="px-4 py-3 text-gray-600">${productBrand}</td>
-                            <td class="px-4 py-3 text-center font-bold text-lg">${stats.totalOrdered}</td>
-                            <td class="px-4 py-3 text-center">${stats.ordersCount}</td>
-                            <td class="px-4 py-3 text-center text-sm text-gray-500">${lastOrderDateStr}</td>
-                        </tr>
-                    `;
-                });
-            }
-
-            html += `
-                        </tbody>
-                    </table>
-                    </div>
-                    
-                    <div class="mt-4 text-sm text-gray-500">
-                        <div class="flex flex-wrap gap-4">
-                            <div class="flex items-center">
-                                <div class="w-4 h-4 bg-green-50 border mr-2"></div>
-                                <span>מוצרים פופולריים (50+ יח')</span>
+                    <div class="border-b pb-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-semibold">הזמנה #${doc.id.substring(0, 6)}</span>
+                                <span class="px-2 py-1 rounded text-xs ${statusColor} ml-2">${statusText}</span>
                             </div>
-                            <div class="flex items-center">
-                                <div class="w-4 h-4 bg-yellow-50 border mr-2"></div>
-                                <span>מוצרים נמכרים (20-49 יח')</span>
-                            </div>
-                            <div class="flex items-center">
-                                <div class="w-4 h-4 bg-blue-50 border mr-2"></div>
-                                <span>מוצרים מזדמנים (10-19 יח')</span>
-                            </div>
+                            <span class="text-sm text-gray-500">${formatDate(order.createdAt)}</span>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            חנות: ${order.storeName || "לא ידוע"} | 
+                            הוזמן ע"י: ${order.createdByName || "לא ידוע"}
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+                count++;
+            });
 
-            content.innerHTML = html;
+            html += `</div></div>`;
             content.innerHTML = html;
 
         } catch (error) {

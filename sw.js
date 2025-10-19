@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v8-fixed-imports';
+const CACHE_NAME = 'stock-orders-v7-fixed-sw';
 const urlsToCache = [
   './',
   './index.html',
@@ -29,25 +29,6 @@ self.addEventListener('install', event => {
       .catch(err => {
         console.error('Failed to cache resources:', err);
       })
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      // Take control immediately
-      return self.clients.claim();
-    })
   );
 });
 
