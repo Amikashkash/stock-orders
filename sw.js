@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v7-fixed-sw';
+const CACHE_NAME = 'stock-orders-v8-syntax-fix';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,13 +6,17 @@ const urlsToCache = [
   './app.js',
   './DashboardView.js',
   './CreateOrderView.js',
+  './EditOrderView.js',
   './PickingOrdersView.js',
   './PickOrderDetailsView.js',
   './SalesStatsView.js',
   './OrderHistoryView.js',
   './AddProductView.js',
   './EditProductView.js',
-  './AuthView.js'
+  './AuthView.js',
+  './utils.js',
+  './StateManager.js',
+  './NotificationSystem.js'
 ];
 
 // Install event - cache resources and skip waiting
