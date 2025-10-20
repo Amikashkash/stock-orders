@@ -88,6 +88,11 @@ export const OrderHistoryView = {
                     const statusText = getStatusText(order.status);
                     const statusColor = getStatusColor(order.status);
                     const pickedAtStr = order.pickedAt ? formatDate(order.pickedAt) : "לא הושלמה";
+                    
+                    // Check if order can be edited
+                    const canEdit = order.status === 'pending' && 
+                                   auth && auth.currentUser && 
+                                   order.createdBy === auth.currentUser.uid;
 
                     list.innerHTML += `
                         <div class="border rounded p-4 bg-white shadow mb-3 mr-4">
@@ -101,7 +106,14 @@ export const OrderHistoryView = {
                                 </div>
                                 <div class="text-left">
                                     <span class="px-2 py-1 rounded text-sm ${statusColor}">${statusText}</span>
-                                    <button data-action="show-pick-order-details" data-order-id="${order.id}" class="block mt-2 text-blue-600 hover:underline text-sm">צפה בפרטים</button>
+                                    <div class="mt-2 space-y-1">
+                                        <button data-action="show-pick-order-details" data-order-id="${order.id}" class="block text-blue-600 hover:underline text-sm">צפה בפרטים</button>
+                                        ${canEdit ? `
+                                            <button data-action="edit-order" data-order-id="${order.id}" class="block text-green-600 hover:underline text-sm font-medium">
+                                                ✏️ ערוך הזמנה
+                                            </button>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -113,6 +125,12 @@ export const OrderHistoryView = {
                 const btn = e.target.closest('button[data-action="show-pick-order-details"]');
                 if (btn) {
                     showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true, fromView: 'order-history' });
+                    return;
+                }
+                
+                const editBtn = e.target.closest('button[data-action="edit-order"]');
+                if (editBtn) {
+                    showView('edit-order', { orderId: editBtn.dataset.orderId, fromView: 'order-history' });
                 }
             });
 

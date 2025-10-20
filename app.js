@@ -2,18 +2,19 @@ const cacheBust = `?v=${Date.now()}`;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 import { getFirestore, setDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
-import { AuthView } from `./AuthView.js${cacheBust}`;
-import { DashboardView } from `./DashboardView.js${cacheBust}`;
-import { AddProductView } from `./AddProductView.js${cacheBust}`;
-import { EditProductView } from `./EditProductView.js${cacheBust}`;
-import { CreateOrderView } from `./CreateOrderView.js${cacheBust}`;
-import { PickingOrdersView } from `./PickingOrdersView.js${cacheBust}`;
-import { PickOrderDetailsView } from `./PickOrderDetailsView.js${cacheBust}`;
-import { OrderHistoryView } from `./OrderHistoryView.js${cacheBust}`;
-import { SalesStatsView } from `./SalesStatsView.js${cacheBust}`;
-import { notificationSystem } from `./NotificationSystem.js${cacheBust}`;
-import { setupExportSystem } from `./DataExportSystem.js${cacheBust}`;
-import { mobileFeedback } from `./MobileFeedback.js${cacheBust}`;
+import { AuthView } from "./AuthView.js";
+import { DashboardView } from "./DashboardView.js";
+import { AddProductView } from "./AddProductView.js";
+import { EditProductView } from "./EditProductView.js";
+import { CreateOrderView } from "./CreateOrderView.js";
+import { showEditOrderView } from "./EditOrderView.js";
+import { PickingOrdersView } from "./PickingOrdersView.js";
+import { PickOrderDetailsView } from "./PickOrderDetailsView.js";
+import { OrderHistoryView } from "./OrderHistoryView.js";
+import { SalesStatsView } from "./SalesStatsView.js";
+import { notificationSystem } from "./NotificationSystem.js";
+import { setupExportSystem } from "./DataExportSystem.js";
+import { mobileFeedback } from "./MobileFeedback.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCdAYpf-yICDIHVaqZtRhTk14xV5IfewF4",
@@ -35,14 +36,14 @@ const appState = {
     listeners: [],
 };
 
-function showView(viewName, params = {}) {
+async function showView(viewName, params = {}) {
     appState.currentView = viewName;
     if (params && params.productId) appState.editingProductId = params.productId;
     if (params && params.orderId) appState.pickingOrderId = params.orderId;
-    renderApp(appState.currentUser, params);
+    await renderApp(appState.currentUser, params);
 }
 
-function renderApp(user, params = {}) {
+async function renderApp(user, params = {}) {
     if (!appRoot) return;
     if (Array.isArray(appState.listeners)) {
         appState.listeners.forEach(unsub => unsub && unsub());
@@ -90,6 +91,10 @@ function renderApp(user, params = {}) {
             case 'create-order':
                 mainContent.innerHTML = CreateOrderView.getHTML();
                 listeners = awaitOrSync(CreateOrderView.init, db, auth, showView);
+                break;
+            case 'edit-order':
+                await showEditOrderView(db, auth, params);
+                listeners = [];
                 break;
             case 'picking-orders':
                 mainContent.innerHTML = PickingOrdersView.getHTML();
@@ -193,7 +198,7 @@ function main() {
                     }, { merge: true });
                 }
             }
-            renderApp(user);
+            await renderApp(user);
         });
 
     } catch (e) {
