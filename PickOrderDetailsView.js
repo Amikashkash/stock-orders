@@ -28,9 +28,7 @@ export const PickOrderDetailsView = {
                     <button data-action="show-view" data-view="${backView}" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100" title="${backTitle}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
                     </button>
-                    <h2 class="text-2xl font-semibold text-gray-800 mr-2">
-                        <span id="order-header-title">פרטי הזמנת ליקוט</span>
-                    </h2>
+                    <h2 class="text-2xl font-semibold text-gray-800 mr-2">פרטי הזמנת ליקוט</h2>
                     ${!readOnly ? `<div class="mr-auto text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">התקדמות נשמרת אוטומטית</div>` : ''}
                 </div>
                 
@@ -43,6 +41,20 @@ export const PickOrderDetailsView = {
                     </div>
                     <div class="w-full bg-indigo-200 rounded-full h-2">
                         <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Product Sort Selector -->
+                <div class="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center gap-3">
+                        <label for="product-sort" class="text-sm font-medium text-gray-700">מיון מוצרים:</label>
+                        <select id="product-sort" class="text-sm border border-gray-300 rounded px-2 py-1 bg-white">
+                            <option value="default">סדר הזמנה</option>
+                            <option value="category">קטגוריה</option>
+                            <option value="brand">מותג</option>
+                            <option value="name">שם מוצר</option>
+                        </select>
+                        <span class="text-xs text-gray-500">ארגון רשימת המוצרים לליקוט יעיל יותר</span>
                     </div>
                 </div>
                 ` : ''}
@@ -61,7 +73,7 @@ export const PickOrderDetailsView = {
                 </div>
                 ` : ''}
                 
-                <div id="pick-order-details-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                <div id="pick-order-details-list" class="space-y-4"></div>
                 <button id="complete-pick-btn" class="bg-green-600 text-white px-4 py-2 rounded mt-4" style="display:none">סיים ליקוט</button>
             </div>
         `;
@@ -84,13 +96,6 @@ export const PickOrderDetailsView = {
             const orderSnap = await getDoc(doc(db, "orders", orderId));
             if (orderSnap.exists()) {
                 orderData = orderSnap.data();
-                
-                // עדכון כותרת עם מזהה הזמנה
-                const orderHeaderTitle = document.getElementById('order-header-title');
-                if (orderHeaderTitle && orderData) {
-                    const displayId = orderData.displayId || `הזמנה #${orderId.substring(0, 6)}`;
-                    orderHeaderTitle.textContent = `פרטי ליקוט - ${displayId}`;
-                }
             }
         } catch (e) {
             console.warn('Failed to load order data:', e);
@@ -115,27 +120,6 @@ export const PickOrderDetailsView = {
                     packageQuantity: item.packageQuantity || null
                 });
             });
-                // Sort items by brand/category (brand is the same as category)
-            localItems.sort((a, b) => {
-                const productA = productsMap[a.productId];
-                const productB = productsMap[b.productId];
-                
-                const brandA = (productA?.brand || productA?.category || "").toLowerCase();
-                const brandB = (productB?.brand || productB?.category || "").toLowerCase();
-                
-                // First sort by brand/category
-                if (brandA < brandB) return -1;
-                if (brandA > brandB) return 1;
-                
-                // If same brand, sort by product name
-                const nameA = (productA?.name || "").toLowerCase();
-                const nameB = (productB?.name || "").toLowerCase();
-                
-                if (nameA < nameB) return -1;
-                if (nameA > nameB) return 1;
-                
-                return 0;
-            });        
 
             if (localItems.length === 0) {
                 const emptyMessage = `
@@ -215,6 +199,14 @@ export const PickOrderDetailsView = {
             `;
         }
 
+        // עדכון כותרת עם מספר הזמנה
+        if (orderData && orderData.displayId) {
+            const headerTitle = document.querySelector('h2');
+            if (headerTitle) {
+                headerTitle.textContent = `פרטי הזמנה ${orderData.displayId}`;
+            }
+        }
+
         // שחזור הערות מהתקדמות שמורה
         if (!readOnly && savedProgress && savedProgress.notes) {
             const notesTextarea = document.getElementById('picking-notes');
@@ -229,6 +221,14 @@ export const PickOrderDetailsView = {
             if (notesTextarea) {
                 notesTextarea.addEventListener('input', () => {
                     saveProgress();
+                });
+            }
+            
+            // האזנה לשינויים במיון מוצרים
+            const sortSelector = document.getElementById('product-sort');
+            if (sortSelector) {
+                sortSelector.addEventListener('change', () => {
+                    renderItems(); // Re-render with new sort order
                 });
             }
         }
@@ -264,24 +264,41 @@ export const PickOrderDetailsView = {
         }
     }
     
-    let html = "";
-    let currentBrand = "";
+    // Sort items based on selected sort option
+    const sortSelector = document.getElementById('product-sort');
+    const sortBy = sortSelector ? sortSelector.value : 'default';
+    
+    const sortedItems = [...localItems].sort((a, b) => {
+        const productA = productsMap[a.productId];
+        const productB = productsMap[b.productId];
+        
+        switch (sortBy) {
+            case 'category':
+                const catA = productA?.category || 'ללא קטגוריה';
+                const catB = productB?.category || 'ללא קטגוריה';
+                return catA.localeCompare(catB, 'he');
+                
+            case 'brand':
+                const brandA = productA?.brand || 'ללא מותג';
+                const brandB = productB?.brand || 'ללא מותג';
+                return brandA.localeCompare(brandB, 'he');
+                
+            case 'name':
+                const nameA = productA?.name || 'מוצר לא ידוע';
+                const nameB = productB?.name || 'מוצר לא ידוע';
+                return nameA.localeCompare(nameB, 'he');
+                
+            default: // 'default' - keep original order
+                return 0;
+        }
+    });
 
-    localItems.forEach((item, index) => {
+    let html = "";
+    sortedItems.forEach(item => {
         const product = productsMap[item.productId];
         const productName = product?.name || "מוצר לא ידוע";
         const brand = product?.brand ? ` (${product.brand})` : "";
         const imageUrl = product?.imageUrl || product?.image || "";
-
-            // Add brand header if this is a new brand group
-        if (brand !== currentBrand) {
-            currentBrand = brand;
-            html += `
-                <div class="col-span-full bg-blue-50 border-l-4 border-blue-400 p-3 mb-2 rounded-r-lg">
-                    <h3 class="font-bold text-blue-800 text-lg">${brand}</h3>
-                </div>
-            `;
-        }
 
         // Show weight/size: expects product.weight = { value: 2, unit: "ק\"ג" }
         let weightDisplay = "";

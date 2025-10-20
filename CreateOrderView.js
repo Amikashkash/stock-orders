@@ -1,4 +1,5 @@
 import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { getNextOrderNumber } from './utils.js';
 
 let products = [];
 let shoppingCart = {}; // productId => quantity
@@ -221,28 +222,34 @@ async function saveOrder(db, auth) {
     const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
     if (items.length === 0) return;
 
-    // Fetch user info from Firestore
-    let storeName = "לא ידוע";
-    let createdByName = "לא ידוע";
-    if (auth.currentUser) {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-            const userData = userSnap.data();
-            storeName = userData.storeName || storeName;
-            createdByName = userData.fullName || createdByName;
+    try {
+        // Generate sequential order number first
+        const { displayId, sequentialNumber } = await getNextOrderNumber(db);
+        
+        // Fetch user info from Firestore
+        let storeName = "לא ידוע";
+        let createdByName = "לא ידוע";
+        if (auth.currentUser) {
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                const userData = userSnap.data();
+                storeName = userData.storeName || storeName;
+                createdByName = userData.fullName || createdByName;
+            }
         }
-    }
 
-    const order = {
-        createdAt: new Date(),
-        createdBy: auth.currentUser ? auth.currentUser.uid : null,
-        storeName,
-        createdByName,
-        status: "pending",
-        notes: document.getElementById('order-notes')?.value?.trim() || ""
-    };
-    const orderRef = await addDoc(collection(db, "orders"), order);
+        const order = {
+            displayId,              // ORD-0001, ORD-0002, etc.
+            sequentialNumber,       // 1, 2, 3, etc.
+            createdAt: new Date(),
+            createdBy: auth.currentUser ? auth.currentUser.uid : null,
+            storeName,
+            createdByName,
+            status: "pending",
+            notes: document.getElementById('order-notes')?.value?.trim() || ""
+        };
+        const orderRef = await addDoc(collection(db, "orders"), order);
     
     let itemCounter = 0;
     for (const [productId, qty] of items) {
@@ -271,17 +278,15 @@ async function saveOrder(db, auth) {
     renderCartIndicator();
     renderCartSummary();
     
-    // עדכון כפתור FAB
-    const fabBtn = document.getElementById('fab-save-btn');
-    if (fabBtn) {
-        fabBtn.disabled = true;
-        fabBtn.classList.remove('visible');
-    }
-    
     // גלילה למעלה אחרי שמירה מוצלחת
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    window.showSuccess("ההזמנה נשמרה בהצלחה!");
+    window.showSuccess(`ההזמנה ${order.displayId} נשמרה בהצלחה!`);
+    
+    } catch (error) {
+        console.error('Error saving order:', error);
+        window.showError('שגיאה בשמירת ההזמנה: ' + error.message);
+    }
 }
 // start of updated code
 function renderProducts(brand = "") {
@@ -492,65 +497,72 @@ function listenBrandFilter() {
 export const CreateOrderView = {
     getHTML: function() {
         return `
-            <div style="padding-top: 50px; padding-bottom: 140px;">
-                <!-- Ultra Compact Sticky Header -->
-                <div class="fixed top-0 left-0 right-0 bg-white z-20 border-b border-gray-200 shadow-sm" style="height: 50px;">
-                    <div class="max-w-6xl mx-auto h-full px-3 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <button type="button" data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-1" title="חזרה">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                            </button>
-                            <span class="font-bold text-base">הוספת הזמנה</span>
-                            <span id="cart-indicator" class="text-green-700 font-semibold text-sm"></span>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <select id="brand-filter" class="text-xs border rounded px-2 py-1" style="max-width: 120px;">
-                                <option value="">כל המותגים</option>
-                            </select>
-                            <button id="header-notes-toggle" class="text-blue-600 hover:bg-blue-50 p-1 rounded" title="הערות">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </button>
+            <div>
+                <div class="mobile-top-nav">
+                    <div class="flex items-center mb-4 md:mb-0">
+                        <button type="button" data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 p-2 rounded-full hover:bg-gray-100 mr-2" title="חזרה לדשבורד">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l-4-4m0 0l-4 4m4-4v12" /></svg>
+                        </button>
+                        <span class="font-bold text-xl">הוספת הזמנה</span>
+                        <span id="cart-indicator" class="ml-2 text-green-700"></span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="brand-filter" class="font-semibold">סנן לפי מותג:</label>
+                    <select id="brand-filter" class="input-style ml-2">
+                        <option value="">הצג הכל</option>
+                    </select>
+                </div>
+                
+                <!-- הסבר על הזמנה לפי מארזים -->
+                <div class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="flex items-center text-blue-800">
+                        <span class="text-lg mr-2">💡</span>
+                        <div>
+                            <span class="font-medium">הזמנה גמישה לפי מוצר</span>
+                            <div class="text-xs text-blue-600 mt-1">כל מוצר ניתן להזמנה בנפרד לפי מארזים או יחידות בודדות</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Products List with more space -->
-                <div class="px-3">
-                    <div id="products-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
-                </div>
+                <div id="products-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
                 
-                <!-- Compact Sticky Cart at Bottom -->
-                <div class="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 shadow-lg z-30" style="max-height: 140px;">
-                    <div class="max-w-6xl mx-auto px-3 py-2">
-                        <!-- Cart Summary - Scrollable if needed -->
-                        <div id="cart-summary" class="mb-2 text-sm" style="max-height: 60px; overflow-y: auto;"></div>
-                        
-                        <!-- Collapsible Notes -->
-                        <div id="notes-panel" class="overflow-hidden transition-all duration-300" style="max-height: 0; opacity: 0;">
-                            <textarea id="order-notes" class="w-full text-xs border rounded px-2 py-1 mb-1 resize-none" rows="2" placeholder="הערות למלקט..."></textarea>
-                        </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="flex gap-1">
-                            <button id="save-order-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-semibold disabled:opacity-50" disabled>
-                                💾 שמור
-                            </button>
-                            <button id="clear-cart-btn" class="px-3 py-2 text-red-600 border border-red-300 rounded text-xs hover:bg-red-50">
-                                רוקן
-                            </button>
-                            <button type="button" data-action="show-view" data-view="dashboard" class="px-3 py-2 text-indigo-600 border border-indigo-300 rounded text-xs hover:bg-indigo-50">
-                                ביטול
-                            </button>
-                        </div>
+                <div class="bg-gray-50 p-4 rounded-lg shadow mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-bold text-lg">סיכום עגלה</h3>
+                        <button id="clear-cart-btn" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors">
+                            רוקן עגלה
+                        </button>
+                    </div>
+                    <div id="cart-summary"></div>
+                    
+                    <!-- הערות למלקט -->
+                    <div class="mt-4">
+                        <label for="order-notes" class="block text-sm font-medium text-gray-700 mb-2">הערות למלקט:</label>
+                        <textarea id="order-notes" class="input-style resize-none" rows="3" placeholder="הערות מיוחדות, החלפות מותרות, הנחיות לליקוט..."></textarea>
+                        <div class="text-xs text-gray-500 mt-1">הערות אלו יופיעו למלקט בעת ביצוע ההזמנה</div>
+                    </div>
+                    
+                    <button id="save-order-btn" class="mobile-primary-btn bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg mt-4 w-full font-semibold" disabled>
+                        שמור הזמנה
+                    </button>
+                    
+                    <!-- כפתור חזרה למטה -->
+                    <div class="mt-4 text-center">
+                        <button type="button" data-action="show-view" data-view="dashboard" class="text-indigo-600 hover:text-indigo-800 px-4 py-2 rounded-lg border border-indigo-300 hover:bg-indigo-50 transition-colors">
+                            ← חזרה לדשבורד
+                        </button>
                     </div>
                 </div>
+                
+                <!-- כפתור FAB לשמירה מהירה במובייל -->
+                <button id="fab-save-btn" class="fab-save" title="שמור הזמנה" disabled>
+                    💾
+                </button>
             </div>
         `;
     },
-                
-      
     init: async function(db, auth, showView) {
         // טעינת עגלה שמורה
         loadCartFromStorage();

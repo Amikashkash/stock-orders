@@ -1,4 +1,5 @@
 import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { getRelativeDate, groupBy, isSameDay } from './utils.js';
 
 function formatDate(date) {
     if (!date) return "לא ידוע";
@@ -45,31 +46,67 @@ export const OrderHistoryView = {
                 return;
             }
 
-            list.innerHTML = "";
+            // Group orders by date
+            const orders = [];
             snap.forEach(docSnap => {
-                const order = docSnap.data();
-                const storeName = (order.storeName && order.storeName !== "Set Store Name Here") ? order.storeName : "לא ידוע";
-                const statusText = getStatusText(order.status);
-                const statusColor = getStatusColor(order.status);
-                const pickedAtStr = order.pickedAt ? formatDate(order.pickedAt) : "לא הושלמה";
+                orders.push({
+                    id: docSnap.id,
+                    ...docSnap.data()
+                });
+            });
 
+            // Group by date
+            const groupedOrders = groupBy(orders, (order) => {
+                const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                return date.toDateString(); // Group by day
+            });
+
+            // Render grouped orders
+            list.innerHTML = "";
+            
+            // Sort date groups (most recent first)
+            const sortedDateKeys = Object.keys(groupedOrders).sort((a, b) => new Date(b) - new Date(a));
+            
+            sortedDateKeys.forEach(dateKey => {
+                const dayOrders = groupedOrders[dateKey];
+                const sampleDate = dayOrders[0].createdAt?.toDate ? dayOrders[0].createdAt.toDate() : new Date(dayOrders[0].createdAt);
+                const relativeDate = getRelativeDate(sampleDate);
+                
+                // Date header
                 list.innerHTML += `
-                    <div class="border rounded p-4 bg-white shadow">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <div class="font-bold">הזמנה #${docSnap.id.substring(0, 6)}</div>
-                                <div class="text-sm text-gray-500">חנות: ${storeName}</div>
-                                <div class="text-sm text-gray-500">הוזמנה ע"י: ${order.createdByName || "לא ידוע"}</div>
-                                <div class="text-sm text-gray-500">תאריך: ${formatDate(order.createdAt)}</div>
-                                <div class="text-sm text-gray-500">הושלמה: ${pickedAtStr}</div>
-                            </div>
-                            <div class="text-left">
-                                <span class="px-2 py-1 rounded text-sm ${statusColor}">${statusText}</span>
-                                <button data-action="show-pick-order-details" data-order-id="${docSnap.id}" class="block mt-2 text-blue-600 hover:underline text-sm">צפה בפרטים</button>
-                            </div>
-                        </div>
+                    <div class="sticky top-16 bg-blue-50 border-l-4 border-blue-400 p-3 mb-3 rounded-r-lg z-10 shadow-sm">
+                        <h3 class="font-bold text-blue-800 text-lg flex items-center gap-2">
+                            📅 ${relativeDate}
+                            <span class="text-sm font-normal text-blue-600">(${dayOrders.length} הזמנות)</span>
+                        </h3>
                     </div>
                 `;
+                
+                // Orders for this date
+                dayOrders.forEach(order => {
+                    const storeName = (order.storeName && order.storeName !== "Set Store Name Here") ? order.storeName : "לא ידוע";
+                    const statusText = getStatusText(order.status);
+                    const statusColor = getStatusColor(order.status);
+                    const pickedAtStr = order.pickedAt ? formatDate(order.pickedAt) : "לא הושלמה";
+
+                    list.innerHTML += `
+                        <div class="border rounded p-4 bg-white shadow mb-3 mr-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <div class="font-bold">הזמנה #${order.displayId || order.id.substring(0, 6)}</div>
+                                    <div class="text-sm text-gray-500">חנות: ${storeName}</div>
+                                    <div class="text-sm text-gray-500">הוזמנה ע"י: ${order.createdByName || "לא ידוע"}</div>
+                                    <div class="text-sm text-gray-500">תאריך: ${formatDate(order.createdAt)}</div>
+                                    <div class="text-sm text-gray-500">הושלמה: ${pickedAtStr}</div>
+                                </div>
+                                <div class="text-left">
+                                    <span class="px-2 py-1 rounded text-sm ${statusColor}">${statusText}</span>
+                                    <button data-action="show-pick-order-details" data-order-id="${order.id}" class="block mt-2 text-blue-600 hover:underline text-sm">צפה בפרטים</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
             });
 
             list.addEventListener('click', e => {

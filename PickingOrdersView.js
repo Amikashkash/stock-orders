@@ -1,4 +1,4 @@
-import { collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { pickingProgressManager } from './PickingProgressManager.js';
 
 export const PickingOrdersView = {
@@ -21,8 +21,12 @@ export const PickingOrdersView = {
         const list = document.getElementById('picking-orders-list');
         list.innerHTML = `<div class="text-center text-gray-500">טוען הזמנות...</div>`;
 
-        // Query only orders that are not picked yet
-        const q = query(collection(db, "orders"), where("status", "in", ["pending", "in-progress"]));
+        // Query only orders that are not picked yet, sorted by creation date (oldest first for picking)
+        const q = query(
+            collection(db, "orders"), 
+            where("status", "in", ["pending", "in-progress"]),
+            orderBy("createdAt", "asc")  // Oldest first for picking workflow
+        );
         const unsubscribe = onSnapshot(q, (snap) => {
             if (snap.empty) {
                 list.innerHTML = `<div class="text-center text-gray-500">אין הזמנות לליקוט כרגע.</div>`;

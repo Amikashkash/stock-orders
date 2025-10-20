@@ -95,7 +95,7 @@ export const SalesStatsView = {
                     <div class="border-b pb-2">
                         <div class="flex justify-between items-center">
                             <div>
-                                <span class="font-semibold">הזמנה #${doc.id.substring(0, 6)}</span>
+                                <span class="font-semibold">הזמנה #${doc.data().displayId || doc.id.substring(0, 6)}</span>
                                 <span class="px-2 py-1 rounded text-xs ${statusColor} ml-2">${statusText}</span>
                             </div>
                             <span class="text-sm text-gray-500">${formatDate(order.createdAt)}</span>
