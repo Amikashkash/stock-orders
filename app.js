@@ -101,7 +101,7 @@ async function renderApp(user, params = {}) {
                 break;
             case 'order-history':
                 mainContent.innerHTML = OrderHistoryView.getHTML();
-                listeners = OrderHistoryView.init(db, showView) || [];
+                listeners = OrderHistoryView.init(db, auth, showView) || [];
                 break;
             case 'pick-order-details':
                 const orderId = params?.orderId;

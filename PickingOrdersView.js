@@ -1,5 +1,6 @@
 import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { pickingProgressManager } from './PickingProgressManager.js';
+import { formatDate } from './utils.js';
 
 export const PickingOrdersView = {
     getHTML: function() {
@@ -64,6 +65,7 @@ export const PickingOrdersView = {
                                 </div>
                                 <div class="text-sm text-gray-500">חנות: ${storeName}</div>
                                 <div class="text-sm text-gray-500">הוזמן ע"י: ${createdByName}</div>
+                                <div class="text-sm text-gray-500">תאריך הזמנה: ${formatDate(order.createdAt)}</div>
                                 ${hasProgress ? `<div class="text-xs text-blue-600 mt-1">עודכן לאחרונה: ${new Date(hasProgress.lastModified).toLocaleString('he-IL')}</div>` : ''}
                             </div>
                             <button data-action="show-pick-order-details" data-order-id="${orderId}" class="text-blue-600 hover:underline">פרטי ליקוט</button>

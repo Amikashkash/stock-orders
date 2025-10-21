@@ -25,7 +25,7 @@ export const OrderHistoryView = {
             </div>
         `;
     },
-    init: async function(db, showView) {
+    init: async function(db, auth, showView) {
         const list = document.getElementById('order-history-list');
         if (!list) {
             console.error('Could not find order-history-list element');
