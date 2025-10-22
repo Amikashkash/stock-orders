@@ -183,7 +183,9 @@ async function updateOrder(db, auth, showView) {
         window.showSuccess('ההזמנה עודכנה בהצלחה!');
         
         // Return to order history
-        showView('order-history');
+        if (showView) {
+            showView('order-history');
+        }
         
     } catch (error) {
         console.error("Error updating order:", error);
@@ -198,6 +200,7 @@ function addToCart(productId, quantity = 1) {
     saveCartToStorage();
     renderCartIndicator();
     renderCartSummary();
+    renderProducts(document.getElementById('brand-filter')?.value || '');
 }
 
 function removeFromCart(productId, quantity = 1) {
@@ -210,6 +213,7 @@ function removeFromCart(productId, quantity = 1) {
     saveCartToStorage();
     renderCartIndicator();
     renderCartSummary();
+    renderProducts(document.getElementById('brand-filter')?.value || '');
 }
 
 function setCartQuantity(productId, quantity) {
@@ -222,6 +226,7 @@ function setCartQuantity(productId, quantity) {
     saveCartToStorage();
     renderCartIndicator();
     renderCartSummary();
+    renderProducts(document.getElementById('brand-filter')?.value || '');
 }
 
 function togglePackageMode(productId) {
@@ -497,10 +502,22 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
         
         if (productsContainer) {
             productsContainer.addEventListener('click', (e) => {
-                const action = e.target.dataset.action;
-                const productId = e.target.dataset.productId;
+                // Try to find the button element if we clicked on something inside it
+                let button = e.target;
+                if (button.tagName !== 'BUTTON') {
+                    button = button.closest('button');
+                }
+                
+                if (!button) return;
+                
+                const action = button.dataset.action;
+                const productId = button.dataset.productId || button.dataset['product-id'];
                 
                 if (!action || !productId) return;
+                
+                // Prevent default behavior
+                e.preventDefault();
+                e.stopPropagation();
                 
                 switch (action) {
                     case 'add-to-cart':
@@ -519,7 +536,7 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
         if (cartSummary) {
             cartSummary.addEventListener('click', (e) => {
                 const action = e.target.dataset.action;
-                const productId = e.target.dataset.productId;
+                const productId = e.target.dataset.productId || e.target.dataset['product-id'];
                 
                 if (!action || !productId) return;
                 
@@ -535,7 +552,7 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
             
             cartSummary.addEventListener('change', (e) => {
                 if (e.target.dataset.action === 'set-cart-quantity') {
-                    const productId = e.target.dataset.productId;
+                    const productId = e.target.dataset.productId || e.target.dataset['product-id'];
                     const quantity = parseInt(e.target.value) || 0;
                     setCartQuantity(productId, quantity);
                 }
