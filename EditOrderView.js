@@ -119,7 +119,7 @@ async function loadOrderData(db, auth, orderId) {
     }
 }
 
-async function updateOrder(db, auth) {
+async function updateOrder(db, auth, showView) {
     const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
     
     if (items.length === 0) {
@@ -335,7 +335,7 @@ function renderProducts(brandFilter = '') {
     container.innerHTML = productsHTML;
 }
 
-export async function showEditOrderView(db, auth, params = {}) {
+export async function showEditOrderView(db, auth, showView, params = {}) {
     const { orderId, fromView } = params;
     
     if (!orderId) {
@@ -468,7 +468,7 @@ export async function showEditOrderView(db, auth, params = {}) {
             button.textContent = 'מעדכן...';
             
             try {
-                await updateOrder(db, auth);
+                await updateOrder(db, auth, showView);
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
@@ -487,9 +487,14 @@ export async function showEditOrderView(db, auth, params = {}) {
             <div class="text-red-500 text-center p-8">
                 <h3 class="text-xl font-bold mb-2">שגיאה בטעינת עמוד העריכה</h3>
                 <p class="mb-4">${error.message}</p>
-                <button onclick="showView('${fromView || 'order-history'}')" class="bg-blue-500 text-white px-4 py-2 rounded">חזור</button>
+                <button id="error-back-btn" class="bg-blue-500 text-white px-4 py-2 rounded">חזור</button>
             </div>
         `;
+        
+        // Add event listener for the error back button
+        document.getElementById('error-back-btn')?.addEventListener('click', () => {
+            showView(fromView || 'order-history');
+        });
     }
 }
 

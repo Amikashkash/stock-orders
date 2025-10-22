@@ -92,7 +92,7 @@ async function renderApp(user, params = {}) {
                 listeners = awaitOrSync(CreateOrderView.init, db, auth, showView);
                 break;
             case 'edit-order':
-                await showEditOrderView(db, auth, params);
+                await showEditOrderView(db, auth, showView, params);
                 listeners = [];
                 break;
             case 'picking-orders':
