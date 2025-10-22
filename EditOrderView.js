@@ -120,6 +120,8 @@ async function loadOrderData(db, auth, orderId) {
 }
 
 async function updateOrder(db, auth, showView) {
+    console.log('Starting updateOrder...', { editingOrderId, originalOrder, shoppingCart });
+    
     const items = Object.entries(shoppingCart).filter(([_, qty]) => qty > 0);
     
     if (items.length === 0) {
@@ -128,6 +130,8 @@ async function updateOrder(db, auth, showView) {
     }
 
     try {
+        console.log('Updating order with items:', items);
+        
         // Update order metadata
         const orderRef = doc(db, "orders", editingOrderId);
         const updatedOrder = {
@@ -136,8 +140,10 @@ async function updateOrder(db, auth, showView) {
             updatedAt: new Date()
         };
         
+        console.log('Updating order metadata...');
         await updateDoc(orderRef, updatedOrder);
 
+        console.log('Deleting existing order items...');
         // Delete all existing order items
         const itemsCollection = collection(db, "orders", editingOrderId, "orderItems");
         const existingItems = await getDocs(itemsCollection);
@@ -146,6 +152,7 @@ async function updateOrder(db, auth, showView) {
             await deleteDoc(doc(db, "orders", editingOrderId, "orderItems", itemDoc.id));
         }
 
+        console.log('Adding new order items...');
         // Add new order items
         for (const [productId, qty] of items) {
             const product = products.find(p => p.id === productId);
@@ -161,8 +168,11 @@ async function updateOrder(db, auth, showView) {
                 packageQuantity: isPackageMode ? packageQty : null
             };
             
+            console.log('Adding item:', { productId, qty, orderItemData });
             await addDoc(collection(db, "orders", editingOrderId, "orderItems"), orderItemData);
         }
+        
+        console.log('Order update completed successfully');
         
         // Clear cart and localStorage
         Object.keys(shoppingCart).forEach(pid => shoppingCart[pid] = 0);
@@ -257,13 +267,13 @@ function renderCartSummary() {
                     <div class="text-sm text-gray-500">${displayQty}</div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <button onclick="removeFromCart('${productId}', 1)" class="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-lg">-</button>
+                    <button data-action="remove-from-cart" data-product-id="${productId}" class="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-lg">-</button>
                     <input type="number" 
                            value="${qty}" 
                            min="0" 
-                           onchange="setCartQuantity('${productId}', parseInt(this.value) || 0)"
+                           data-action="set-cart-quantity" data-product-id="${productId}"
                            class="w-16 text-center border rounded px-2 py-1">
-                    <button onclick="addToCart('${productId}', 1)" class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-lg">+</button>
+                    <button data-action="add-to-cart" data-product-id="${productId}" class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-lg">+</button>
                 </div>
             </div>
         `;
@@ -314,15 +324,15 @@ function renderProducts(brandFilter = '') {
                 
                 <div class="flex items-center justify-between mt-3">
                     <div class="flex items-center space-x-2">
-                        <button onclick="removeFromCart('${product.id}', 1)" 
+                        <button data-action="remove-from-cart" data-product-id="${product.id}" 
                                 class="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center text-xl font-bold">-</button>
                         <span class="mx-3 text-xl font-bold min-w-[3rem] text-center">${quantity}</span>
-                        <button onclick="addToCart('${product.id}', 1)" 
+                        <button data-action="add-to-cart" data-product-id="${product.id}" 
                                 class="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center text-xl font-bold">+</button>
                     </div>
                     
                     ${product.packageQuantity > 1 ? `
-                        <button onclick="togglePackageMode('${product.id}')" 
+                        <button data-action="toggle-package-mode" data-product-id="${product.id}" 
                                 class="px-3 py-1 rounded text-sm ${isPackageMode ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}">
                             ${isPackageMode ? 'חבילות' : 'יחידות'}
                         </button>
@@ -480,6 +490,57 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
             const cartSummary = document.querySelector('.lg\\:col-span-1');
             cartSummary.classList.toggle('hidden');
         });
+
+        // Event delegation for product buttons (scoped to this view)
+        const productsContainer = document.getElementById('products-container');
+        const cartSummary = document.getElementById('cart-summary');
+        
+        if (productsContainer) {
+            productsContainer.addEventListener('click', (e) => {
+                const action = e.target.dataset.action;
+                const productId = e.target.dataset.productId;
+                
+                if (!action || !productId) return;
+                
+                switch (action) {
+                    case 'add-to-cart':
+                        addToCart(productId, 1);
+                        break;
+                    case 'remove-from-cart':
+                        removeFromCart(productId, 1);
+                        break;
+                    case 'toggle-package-mode':
+                        togglePackageMode(productId);
+                        break;
+                }
+            });
+        }
+        
+        if (cartSummary) {
+            cartSummary.addEventListener('click', (e) => {
+                const action = e.target.dataset.action;
+                const productId = e.target.dataset.productId;
+                
+                if (!action || !productId) return;
+                
+                switch (action) {
+                    case 'add-to-cart':
+                        addToCart(productId, 1);
+                        break;
+                    case 'remove-from-cart':
+                        removeFromCart(productId, 1);
+                        break;
+                }
+            });
+            
+            cartSummary.addEventListener('change', (e) => {
+                if (e.target.dataset.action === 'set-cart-quantity') {
+                    const productId = e.target.dataset.productId;
+                    const quantity = parseInt(e.target.value) || 0;
+                    setCartQuantity(productId, quantity);
+                }
+            });
+        }
 
     } catch (error) {
         console.error("Error in showEditOrderView:", error);
