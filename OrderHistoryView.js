@@ -1,4 +1,4 @@
-import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, query, orderBy, getDocs, limit } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { getRelativeDate, groupBy, isSameDay } from './utils.js';
 
 function formatDate(date) {
@@ -38,7 +38,8 @@ export const OrderHistoryView = {
                 return;
             }
             
-            const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+            // Load only the most recent 50 orders to improve performance
+            const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50));
             const snap = await getDocs(q);
             
             if (snap.empty) {
@@ -62,7 +63,14 @@ export const OrderHistoryView = {
             });
 
             // Render grouped orders
-            list.innerHTML = "";
+            list.innerHTML = `
+                <div class="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-center">
+                    <div class="text-sm text-gray-600">
+                        מציג את ${orders.length} ההזמנות האחרונות
+                        ${orders.length >= 50 ? ' • לחיפוש הזמנות ישנות יותר השתמש בסטטיסטיקות' : ''}
+                    </div>
+                </div>
+            `;
             
             // Sort date groups (most recent first)
             const sortedDateKeys = Object.keys(groupedOrders).sort((a, b) => new Date(b) - new Date(a));
