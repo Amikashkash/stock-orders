@@ -51,7 +51,7 @@ export const PickOrderDetailsView = {
                         <select id="product-sort" class="text-sm border border-gray-300 rounded px-2 py-1 bg-white">
                             <option value="default">סדר הזמנה</option>
                             <option value="category">קטגוריה</option>
-                            <option value="brand">מותג</option>
+                            <option value="brand" selected>מותג</option>
                             <option value="name">שם מוצר</option>
                         </select>
                         <span class="text-xs text-gray-500">ארגון רשימת המוצרים לליקוט יעיל יותר</span>
