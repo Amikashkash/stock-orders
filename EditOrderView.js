@@ -435,6 +435,18 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
         const productsSnapshot = await getDocs(collection(db, "products"));
         products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
+        // Sort products by brand (מותג) by default
+        products.sort((a, b) => {
+            const brandA = (a.brand || '').toLowerCase();
+            const brandB = (b.brand || '').toLowerCase();
+            if (brandA < brandB) return -1;
+            if (brandA > brandB) return 1;
+            // If brands are the same, sort by name
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        
         // Load order data
         const orderLoaded = await loadOrderData(db, auth, orderId);
         if (!orderLoaded) {
