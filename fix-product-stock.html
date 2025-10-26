@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תיקון מלאי מוצר</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">🔧 תיקון מלאי מוצר</h1>
+        
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <p class="text-yellow-700 font-bold">שימו לב!</p>
+            <p class="text-yellow-600 text-sm">כלי זה מאפשר לעדכן את כמות המלאי של מוצר ספציפי.</p>
+        </div>
+
+        <div id="login-section" class="mb-6">
+            <h2 class="text-xl font-bold mb-4">התחברות</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">אימייל</label>
+                    <input type="email" id="email" class="w-full border rounded px-3 py-2" placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">סיסמה</label>
+                    <input type="password" id="password" class="w-full border rounded px-3 py-2" placeholder="••••••••">
+                </div>
+                <button id="login-btn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                    התחבר
+                </button>
+            </div>
+        </div>
+
+        <div id="fix-section" class="hidden">
+            <h2 class="text-xl font-bold mb-4">חפש וערוך מוצר</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">חפש מוצר (לפי שם או מק"ט)</label>
+                    <input type="text" id="product-search" class="w-full border rounded px-3 py-2" placeholder="הקלד שם מוצר או מק"ט...">
+                </div>
+                
+                <div id="search-results" class="space-y-2"></div>
+                
+                <div id="product-details" class="hidden bg-gray-50 p-4 rounded">
+                    <h3 class="font-bold mb-3">פרטי מוצר</h3>
+                    <div class="space-y-2 text-sm mb-4">
+                        <div><strong>שם:</strong> <span id="product-name"></span></div>
+                        <div><strong>מותג:</strong> <span id="product-brand"></span></div>
+                        <div><strong>מק"ט:</strong> <span id="product-sku"></span></div>
+                        <div><strong>מלאי נוכחי:</strong> <span id="current-stock" class="font-bold text-blue-600"></span></div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">מלאי חדש</label>
+                        <input type="number" id="new-stock" class="w-full border rounded px-3 py-2" placeholder="0" min="0">
+                    </div>
+                    
+                    <button id="update-stock-btn" class="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 font-medium">
+                        עדכן מלאי
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="log-section" class="mt-6 bg-gray-50 rounded p-4 max-h-48 overflow-y-auto">
+            <h3 class="font-bold mb-2">לוג פעולות</h3>
+            <div id="log" class="text-sm space-y-1 font-mono"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCdAYpf-yICDIHVaqZtRhTk14xV5IfewF4",
+            authDomain: "stock-orders-75be0.firebaseapp.com",
+            projectId: "stock-orders-75be0",
+            storageBucket: "stock-orders-75be0.appspot.com",
+            messagingSenderId: "637582925650",
+            appId: "1:637582925650:web:23e1626b00db6eca30e48b",
+            measurementId: "G-71PT1GXC8R"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let products = [];
+        let selectedProductId = null;
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString('he-IL');
+            const colors = {
+                info: 'text-blue-600',
+                success: 'text-green-600',
+                error: 'text-red-600',
+                warning: 'text-yellow-600'
+            };
+            logEl.innerHTML += `<div class="${colors[type]}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Login
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('fix-section').classList.remove('hidden');
+                log('התחברת בהצלחה', 'success');
+                
+                // Load products
+                log('טוען מוצרים...', 'info');
+                const snapshot = await getDocs(collection(db, "products"));
+                products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                log(`נטענו ${products.length} מוצרים`, 'success');
+            } catch (error) {
+                alert('שגיאה בהתחברות: ' + error.message);
+            }
+        });
+
+        // Search products
+        document.getElementById('product-search').addEventListener('input', (e) => {
+            const search = e.target.value.toLowerCase();
+            const resultsEl = document.getElementById('search-results');
+            
+            if (search.length < 2) {
+                resultsEl.innerHTML = '';
+                return;
+            }
+            
+            const matches = products.filter(p => 
+                p.name?.toLowerCase().includes(search) || 
+                p.sku?.toLowerCase().includes(search) ||
+                p.brand?.toLowerCase().includes(search)
+            ).slice(0, 10);
+            
+            resultsEl.innerHTML = matches.map(p => `
+                <div class="border rounded p-2 hover:bg-blue-50 cursor-pointer" onclick="window.selectProduct('${p.id}')">
+                    <div class="font-semibold">${p.name || 'ללא שם'}</div>
+                    <div class="text-sm text-gray-600">${p.brand || ''} | מק"ט: ${p.id} | מלאי: ${p.stockQuantity ?? '-'}</div>
+                </div>
+            `).join('');
+        });
+
+        // Select product
+        window.selectProduct = (productId) => {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            selectedProductId = productId;
+            document.getElementById('product-name').textContent = product.name || 'ללא שם';
+            document.getElementById('product-brand').textContent = product.brand || '-';
+            document.getElementById('product-sku').textContent = product.id;
+            document.getElementById('current-stock').textContent = product.stockQuantity ?? 0;
+            document.getElementById('new-stock').value = product.stockQuantity ?? 0;
+            document.getElementById('product-details').classList.remove('hidden');
+            
+            log(`נבחר מוצר: ${product.name}`, 'info');
+        };
+
+        // Update stock
+        document.getElementById('update-stock-btn').addEventListener('click', async () => {
+            if (!selectedProductId) return;
+            
+            const newStock = parseInt(document.getElementById('new-stock').value) || 0;
+            const product = products.find(p => p.id === selectedProductId);
+            
+            if (!confirm(`האם לעדכן את המלאי של "${product.name}" ל-${newStock}?`)) {
+                return;
+            }
+            
+            try {
+                const productRef = doc(db, "products", selectedProductId);
+                await updateDoc(productRef, {
+                    stockQuantity: newStock
+                });
+                
+                log(`✓ המלאי עודכן ל-${newStock} עבור "${product.name}"`, 'success');
+                alert('המלאי עודכן בהצלחה!');
+                
+                // Update local copy
+                product.stockQuantity = newStock;
+                document.getElementById('current-stock').textContent = newStock;
+            } catch (error) {
+                log(`✗ שגיאה: ${error.message}`, 'error');
+                alert('שגיאה בעדכון המלאי: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
