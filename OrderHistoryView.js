@@ -1,4 +1,4 @@
-import { collection, query, orderBy, getDocs, limit } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, query, orderBy, getDocs, limit, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { getRelativeDate, groupBy, isSameDay } from './utils.js';
 
 function formatDate(date) {
@@ -101,6 +101,8 @@ export const OrderHistoryView = {
                     const canEdit = order.status === 'pending' && 
                                    auth && auth.currentUser && 
                                    order.createdBy === auth.currentUser.uid;
+                    
+                    console.log('Order:', order.displayId, 'canEdit:', canEdit, 'status:', order.status, 'createdBy:', order.createdBy, 'currentUser:', auth?.currentUser?.uid);
 
                     list.innerHTML += `
                         <div class="border rounded p-4 bg-white shadow mb-3 mr-4">
@@ -120,6 +122,9 @@ export const OrderHistoryView = {
                                             <button data-action="edit-order" data-order-id="${order.id}" class="block text-green-600 hover:underline text-sm font-medium">
                                                 ✏️ ערוך הזמנה
                                             </button>
+                                            <button data-action="delete-order" data-order-id="${order.id}" data-order-display-id="${order.displayId || order.id.substring(0, 6)}" class="block text-red-600 hover:underline text-sm font-medium">
+                                                🗑️ מחק הזמנה
+                                            </button>
                                         ` : ''}
                                     </div>
                                 </div>
@@ -129,7 +134,7 @@ export const OrderHistoryView = {
                 });
             });
 
-            list.addEventListener('click', e => {
+            list.addEventListener('click', async (e) => {
                 const btn = e.target.closest('button[data-action="show-pick-order-details"]');
                 if (btn) {
                     showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true, fromView: 'order-history' });
@@ -139,6 +144,38 @@ export const OrderHistoryView = {
                 const editBtn = e.target.closest('button[data-action="edit-order"]');
                 if (editBtn) {
                     showView('edit-order', { orderId: editBtn.dataset.orderId, fromView: 'order-history' });
+                    return;
+                }
+                
+                const deleteBtn = e.target.closest('button[data-action="delete-order"]');
+                if (deleteBtn) {
+                    const orderId = deleteBtn.dataset.orderId;
+                    const displayId = deleteBtn.dataset.orderDisplayId;
+                    
+                    // Confirm deletion
+                    if (!confirm(`האם אתה בטוח שברצונך למחוק את הזמנה #${displayId}?\n\nפעולה זו אינה ניתנת לביטול!`)) {
+                        return;
+                    }
+                    
+                    try {
+                        // Disable button and show loading state
+                        deleteBtn.disabled = true;
+                        deleteBtn.textContent = 'מוחק...';
+                        
+                        // Delete the order from Firestore
+                        await deleteDoc(doc(db, "orders", orderId));
+                        
+                        // Show success message
+                        alert(`הזמנה #${displayId} נמחקה בהצלחה`);
+                        
+                        // Reload the view to refresh the list
+                        showView('order-history');
+                    } catch (error) {
+                        console.error('Error deleting order:', error);
+                        alert(`שגיאה במחיקת ההזמנה: ${error.message}`);
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = '🗑️ מחק הזמנה';
+                    }
                 }
             });
 

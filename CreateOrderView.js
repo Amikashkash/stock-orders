@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+import { collection, getDocs, addDoc, doc, getDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { getNextOrderNumber } from './utils.js';
 
 let products = [];
@@ -267,6 +267,16 @@ async function saveOrder(db, auth) {
         };
         
         const itemRef = await addDoc(collection(db, "orders", orderRef.id, "orderItems"), orderItemData);
+    }
+    
+    // Delete the draft order if it exists
+    if (draftOrderId) {
+        try {
+            await deleteDoc(doc(db, "orders", draftOrderId));
+            console.log('Draft order deleted:', draftOrderId);
+        } catch (e) {
+            console.warn('Could not delete draft order:', e);
+        }
     }
     
     // Clear cart and localStorage

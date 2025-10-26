@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניקוי הזמנות ריקות</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-3xl font-bold mb-6 text-center text-red-600">⚠️ ניקוי הזמנות ריקות</h1>
+        
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <p class="text-yellow-700 font-bold">אזהרה!</p>
+            <p class="text-yellow-600 text-sm">כלי זה ימחק הזמנות ריקות (draft) מהמערכת. פעולה זו אינה ניתנת לביטול.</p>
+        </div>
+
+        <div id="login-section" class="mb-6">
+            <h2 class="text-xl font-bold mb-4">התחברות</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">אימייל</label>
+                    <input type="email" id="email" class="w-full border rounded px-3 py-2" placeholder="your@email.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">סיסמה</label>
+                    <input type="password" id="password" class="w-full border rounded px-3 py-2" placeholder="••••••••">
+                </div>
+                <button id="login-btn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                    התחבר
+                </button>
+            </div>
+        </div>
+
+        <div id="cleanup-section" class="hidden">
+            <div class="mb-6">
+                <h2 class="text-xl font-bold mb-4">סטטיסטיקות</h2>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-blue-50 p-4 rounded">
+                        <div class="text-2xl font-bold text-blue-600" id="total-orders">-</div>
+                        <div class="text-sm text-gray-600">סה"כ הזמנות</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded">
+                        <div class="text-2xl font-bold text-red-600" id="draft-orders">-</div>
+                        <div class="text-sm text-gray-600">הזמנות draft</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded">
+                        <div class="text-2xl font-bold text-green-600" id="deleted-orders">0</div>
+                        <div class="text-sm text-gray-600">נמחקו</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-xl font-bold mb-4">אפשרויות ניקוי</h2>
+                <div class="space-y-3">
+                    <label class="flex items-center space-x-3 space-x-reverse">
+                        <input type="checkbox" id="delete-drafts" checked class="form-checkbox h-5 w-5 text-blue-600">
+                        <span>מחק הזמנות עם סטטוס "draft"</span>
+                    </label>
+                    <label class="flex items-center space-x-3 space-x-reverse">
+                        <input type="checkbox" id="delete-empty" checked class="form-checkbox h-5 w-5 text-blue-600">
+                        <span>מחק הזמנות ללא פריטים (items ריק)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <button id="scan-btn" class="w-full bg-blue-500 text-white py-3 rounded hover:bg-blue-600 font-bold mb-2">
+                    🔍 סרוק הזמנות
+                </button>
+                <button id="cleanup-btn" class="w-full bg-red-500 text-white py-3 rounded hover:bg-red-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    🗑️ מחק הזמנות ריקות
+                </button>
+            </div>
+
+            <div id="log-section" class="bg-gray-50 rounded p-4 max-h-96 overflow-y-auto">
+                <h3 class="font-bold mb-2">לוג פעולות</h3>
+                <div id="log" class="text-sm space-y-1 font-mono"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCdAYpf-yICDIHVaqZtRhTk14xV5IfewF4",
+            authDomain: "stock-orders-75be0.firebaseapp.com",
+            projectId: "stock-orders-75be0",
+            storageBucket: "stock-orders-75be0.appspot.com",
+            messagingSenderId: "637582925650",
+            appId: "1:637582925650:web:23e1626b00db6eca30e48b",
+            measurementId: "G-71PT1GXC8R"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let ordersToDelete = [];
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString('he-IL');
+            const colors = {
+                info: 'text-blue-600',
+                success: 'text-green-600',
+                error: 'text-red-600',
+                warning: 'text-yellow-600'
+            };
+            logEl.innerHTML += `<div class="${colors[type]}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Login
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('cleanup-section').classList.remove('hidden');
+                log('התחברת בהצלחה', 'success');
+            } catch (error) {
+                alert('שגיאה בהתחברות: ' + error.message);
+            }
+        });
+
+        // Scan for orders
+        document.getElementById('scan-btn').addEventListener('click', async () => {
+            log('מתחיל לסרוק הזמנות...', 'info');
+            ordersToDelete = [];
+            
+            const deleteDrafts = document.getElementById('delete-drafts').checked;
+            const deleteEmpty = document.getElementById('delete-empty').checked;
+
+            try {
+                const ordersSnapshot = await getDocs(collection(db, "orders"));
+                const totalOrders = ordersSnapshot.size;
+                let draftCount = 0;
+                
+                document.getElementById('total-orders').textContent = totalOrders;
+
+                for (const orderDoc of ordersSnapshot.docs) {
+                    const orderData = orderDoc.data();
+                    const orderId = orderDoc.id;
+                    let shouldDelete = false;
+
+                    // Check if it's a draft
+                    if (deleteDrafts && orderData.status === 'draft') {
+                        shouldDelete = true;
+                        draftCount++;
+                        log(`מצא draft: ${orderId}`, 'warning');
+                    }
+
+                    // Check if it has no items
+                    if (deleteEmpty) {
+                        const itemsSnapshot = await getDocs(collection(db, "orders", orderId, "orderItems"));
+                        if (itemsSnapshot.empty && (!orderData.items || orderData.items.length === 0)) {
+                            shouldDelete = true;
+                            log(`מצא הזמנה ריקה: ${orderId} (סטטוס: ${orderData.status || 'לא ידוע'})`, 'warning');
+                        }
+                    }
+
+                    if (shouldDelete) {
+                        ordersToDelete.push({
+                            id: orderId,
+                            displayId: orderData.displayId || orderId.substring(0, 8),
+                            status: orderData.status,
+                            createdAt: orderData.createdAt
+                        });
+                    }
+                }
+
+                document.getElementById('draft-orders').textContent = draftCount;
+                log(`סריקה הושלמה: נמצאו ${ordersToDelete.length} הזמנות למחיקה`, 'success');
+                
+                if (ordersToDelete.length > 0) {
+                    document.getElementById('cleanup-btn').disabled = false;
+                    log(`לחץ על כפתור "מחק הזמנות ריקות" כדי להמשיך`, 'info');
+                } else {
+                    log('לא נמצאו הזמנות למחיקה', 'info');
+                }
+
+            } catch (error) {
+                log('שגיאה בסריקה: ' + error.message, 'error');
+            }
+        });
+
+        // Cleanup orders
+        document.getElementById('cleanup-btn').addEventListener('click', async () => {
+            if (!confirm(`האם אתה בטוח שברצונך למחוק ${ordersToDelete.length} הזמנות?\n\nפעולה זו אינה ניתנת לביטול!`)) {
+                return;
+            }
+
+            document.getElementById('cleanup-btn').disabled = true;
+            document.getElementById('scan-btn').disabled = true;
+            let deletedCount = 0;
+
+            log(`מתחיל מחיקה של ${ordersToDelete.length} הזמנות...`, 'info');
+
+            for (const order of ordersToDelete) {
+                try {
+                    // Delete the order
+                    await deleteDoc(doc(db, "orders", order.id));
+                    deletedCount++;
+                    document.getElementById('deleted-orders').textContent = deletedCount;
+                    log(`✓ נמחק: ${order.displayId} (${order.id})`, 'success');
+                } catch (error) {
+                    log(`✗ שגיאה במחיקת ${order.displayId}: ${error.message}`, 'error');
+                }
+            }
+
+            log(`מחיקה הושלמה! נמחקו ${deletedCount} מתוך ${ordersToDelete.length} הזמנות`, 'success');
+            document.getElementById('scan-btn').disabled = false;
+            ordersToDelete = [];
+        });
+    </script>
+</body>
+</html>

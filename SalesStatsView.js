@@ -28,6 +28,13 @@ export const SalesStatsView = {
         content.innerHTML = `<div class="text-center text-gray-500">טוען נתונים...</div>`;
 
         try {
+            // Load products first
+            const productsSnapshot = await getDocs(collection(db, "products"));
+            const productsMap = {};
+            productsSnapshot.forEach(doc => {
+                productsMap[doc.id] = { id: doc.id, ...doc.data() };
+            });
+
             // שאילתה לכל ההזמנות (לא רק שהושלמו)
             const q = query(
                 collection(db, "orders"), 
@@ -47,9 +54,13 @@ export const SalesStatsView = {
             let ordersToday = 0;
             const today = new Date();
             const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            // Track product statistics
+            const productStats = {}; // productId => { quantity, orders }
 
-            snap.forEach(doc => {
-                const order = doc.data();
+            // Process orders
+            for (const orderDoc of snap.docs) {
+                const order = orderDoc.data();
                 totalOrders++;
                 
                 if (order.status === "picked") completedOrders++;
@@ -58,27 +69,117 @@ export const SalesStatsView = {
                 const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
                 if (orderDate >= thisMonth) ordersThisMonth++;
                 if (orderDate.toDateString() === today.toDateString()) ordersToday++;
-            });
+                
+                // Collect product stats from order items
+                const itemsSnapshot = await getDocs(collection(db, "orders", orderDoc.id, "orderItems"));
+                itemsSnapshot.forEach(itemDoc => {
+                    const item = itemDoc.data();
+                    const productId = item.productId;
+                    const quantity = item.quantityOrdered || 0;
+                    
+                    if (!productStats[productId]) {
+                        productStats[productId] = { quantity: 0, orders: 0 };
+                    }
+                    productStats[productId].quantity += quantity;
+                    productStats[productId].orders += 1;
+                });
+            }
+            
+            // Sort products by quantity (most ordered first)
+            const sortedProducts = Object.entries(productStats)
+                .map(([productId, stats]) => ({
+                    productId,
+                    product: productsMap[productId],
+                    ...stats
+                }))
+                .filter(p => p.product) // Only include products that exist
+                .sort((a, b) => b.quantity - a.quantity);
+            
+            const topProducts = sortedProducts.slice(0, 10); // Top 10
+            const totalProductsOrdered = sortedProducts.reduce((sum, p) => sum + p.quantity, 0);
 
             let html = `
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     <div class="bg-blue-100 p-4 rounded shadow">
                         <h3 class="font-bold text-blue-800">סה"כ הזמנות</h3>
                         <p class="text-2xl font-bold text-blue-900">${totalOrders}</p>
                     </div>
                     <div class="bg-green-100 p-4 rounded shadow">
-                        <h3 class="font-bold text-green-800">הזמנות שהושלמו</h3>
+                        <h3 class="font-bold text-green-800">הושלמו</h3>
                         <p class="text-2xl font-bold text-green-900">${completedOrders}</p>
                     </div>
                     <div class="bg-yellow-100 p-4 rounded shadow">
-                        <h3 class="font-bold text-yellow-800">הזמנות ממתינות</h3>
+                        <h3 class="font-bold text-yellow-800">ממתינות</h3>
                         <p class="text-2xl font-bold text-yellow-900">${pendingOrders}</p>
                     </div>
                     <div class="bg-purple-100 p-4 rounded shadow">
-                        <h3 class="font-bold text-purple-800">הזמנות החודש</h3>
+                        <h3 class="font-bold text-purple-800">החודש</h3>
                         <p class="text-2xl font-bold text-purple-900">${ordersThisMonth}</p>
                     </div>
+                    <div class="bg-orange-100 p-4 rounded shadow">
+                        <h3 class="font-bold text-orange-800">סה"כ פריטים</h3>
+                        <p class="text-2xl font-bold text-orange-900">${totalProductsOrdered}</p>
+                    </div>
                 </div>
+                
+                <!-- Top Products Section -->
+                <div class="bg-white p-6 rounded-lg shadow mb-6">
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <svg class="w-6 h-6 ml-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        המוצרים המובילים (Top 10)
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">שם מוצר</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מותג</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">כמות כוללת</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מס' הזמנות</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ממוצע להזמנה</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+            `;
+            
+            topProducts.forEach((item, index) => {
+                const avgPerOrder = (item.quantity / item.orders).toFixed(1);
+                const isTop3 = index < 3;
+                const medalEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                
+                html += `
+                    <tr class="${isTop3 ? 'bg-yellow-50' : ''}">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${medalEmoji} ${index + 1}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-semibold">
+                            ${item.product.name || 'לא ידוע'}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            ${item.product.brand || '-'}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-green-600">
+                            ${item.quantity}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            ${item.orders}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-blue-600">
+                            ${avgPerOrder}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
                 <div class="bg-white p-4 rounded shadow">
                     <h3 class="font-bold mb-4">הזמנות אחרונות</h3>
                     <div class="space-y-2">

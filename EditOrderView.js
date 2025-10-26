@@ -427,6 +427,13 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
                     </div>
                 </div>
             </div>
+            
+            <!-- Floating Action Button (Mobile) -->
+            <button id="fab-update-order" class="lg:hidden fixed bottom-6 left-6 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-all duration-200 z-50 flex items-center justify-center" style="width: 64px; height: 64px;">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </button>
         </div>
     `;
 
@@ -501,6 +508,32 @@ export async function showEditOrderView(db, auth, showView, params = {}) {
                 button.textContent = originalText;
             }
         });
+
+        // Floating Action Button handler (mobile)
+        const fabButton = document.getElementById('fab-update-order');
+        if (fabButton) {
+            fabButton.addEventListener('click', async () => {
+                const mainButton = document.getElementById('update-order-btn');
+                const originalHTML = fabButton.innerHTML;
+                
+                // Prevent double submission
+                if (fabButton.disabled || mainButton.disabled) return;
+                
+                fabButton.disabled = true;
+                mainButton.disabled = true;
+                fabButton.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>';
+                mainButton.textContent = 'מעדכן...';
+                
+                try {
+                    await updateOrder(db, auth, showView);
+                } finally {
+                    fabButton.disabled = false;
+                    mainButton.disabled = false;
+                    fabButton.innerHTML = originalHTML;
+                    mainButton.textContent = 'עדכן הזמנה';
+                }
+            });
+        }
 
         // Cart toggle (for mobile)
         document.getElementById('toggle-cart').addEventListener('click', () => {
