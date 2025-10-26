@@ -20,7 +20,7 @@ export const SalesStatsView = {
                 
                 <!-- Filters Section -->
                 <div class="bg-white rounded-lg shadow p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">טווח תאריכים</label>
                             <select id="date-range-filter" class="w-full border rounded px-3 py-2">
@@ -41,6 +41,16 @@ export const SalesStatsView = {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">חיפוש מוצר</label>
                             <input type="text" id="product-search" placeholder="הקלד שם מוצר..." class="w-full border rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">מספר מוצרים להצגה</label>
+                            <select id="products-limit" class="w-full border rounded px-3 py-2">
+                                <option value="10" selected>Top 10</option>
+                                <option value="20">Top 20</option>
+                                <option value="50">Top 50</option>
+                                <option value="100">Top 100</option>
+                                <option value="all">כל המוצרים</option>
+                            </select>
                         </div>
                     </div>
                     <div class="mt-4 flex gap-2">
@@ -94,6 +104,7 @@ export const SalesStatsView = {
             document.getElementById('date-range-filter').value = '90';
             document.getElementById('brand-filter').value = '';
             document.getElementById('product-search').value = '';
+            document.getElementById('products-limit').value = '10';
             loadStats(db, productsMap);
         });
         
@@ -207,7 +218,12 @@ async function loadStats(db, productsMap) {
             .filter(p => p.product) // Only include products that exist
             .sort((a, b) => b.quantity - a.quantity);
         
-        const topProducts = sortedProducts.slice(0, 10); // Top 10
+        // Get products limit from filter
+        const productsLimitValue = document.getElementById('products-limit').value;
+        const topProducts = productsLimitValue === 'all' 
+            ? sortedProducts 
+            : sortedProducts.slice(0, parseInt(productsLimitValue));
+        
         const totalProductsOrdered = sortedProducts.reduce((sum, p) => sum + p.quantity, 0);
         
         // Get date range text
@@ -244,11 +260,14 @@ async function loadStats(db, productsMap) {
                 
                 <!-- Top Products Section -->
                 <div class="bg-white p-6 rounded-lg shadow mb-6">
-                    <h3 class="text-xl font-bold mb-4 flex items-center">
-                        <svg class="w-6 h-6 ml-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        המוצרים המובילים (Top 10)
+                    <h3 class="text-xl font-bold mb-4 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <svg class="w-6 h-6 ml-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            המוצרים המובילים
+                        </div>
+                        <span class="text-sm font-normal text-gray-600">מציג ${topProducts.length} מוצרים</span>
                     </h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
