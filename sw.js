@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-orders-v8-syntax-fix';
+const CACHE_NAME = 'stock-orders-v9-mobile-edit-fix';
 const urlsToCache = [
   './',
   './index.html',
