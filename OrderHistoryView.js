@@ -137,20 +137,23 @@ export const OrderHistoryView = {
             list.addEventListener('click', async (e) => {
                 const btn = e.target.closest('button[data-action="show-pick-order-details"]');
                 if (btn) {
-                    showView('pick-order-details', { orderId: btn.dataset.orderId, readOnly: true, fromView: 'order-history' });
+                    const orderId = btn.dataset.orderId || btn.getAttribute('data-order-id');
+                    showView('pick-order-details', { orderId, readOnly: true, fromView: 'order-history' });
                     return;
                 }
                 
                 const editBtn = e.target.closest('button[data-action="edit-order"]');
                 if (editBtn) {
-                    showView('edit-order', { orderId: editBtn.dataset.orderId, fromView: 'order-history' });
+                    const orderId = editBtn.dataset.orderId || editBtn.getAttribute('data-order-id');
+                    console.log('Edit button clicked, orderId:', orderId);
+                    showView('edit-order', { orderId, fromView: 'order-history' });
                     return;
                 }
                 
                 const deleteBtn = e.target.closest('button[data-action="delete-order"]');
                 if (deleteBtn) {
-                    const orderId = deleteBtn.dataset.orderId;
-                    const displayId = deleteBtn.dataset.orderDisplayId;
+                    const orderId = deleteBtn.dataset.orderId || deleteBtn.getAttribute('data-order-id');
+                    const displayId = deleteBtn.dataset.orderDisplayId || deleteBtn.getAttribute('data-order-display-id');
                     
                     // Confirm deletion
                     if (!confirm(`האם אתה בטוח שברצונך למחוק את הזמנה #${displayId}?\n\nפעולה זו אינה ניתנת לביטול!`)) {

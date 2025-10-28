@@ -351,9 +351,12 @@ function renderProducts(brandFilter = '') {
 }
 
 export async function showEditOrderView(db, auth, showView, params = {}) {
+    console.log('EditOrderView - received params:', params);
     const { orderId, fromView } = params;
+    console.log('EditOrderView - orderId:', orderId);
     
     if (!orderId) {
+        console.error('EditOrderView - No orderId found in params');
         window.showError('מזהה הזמנה לא נמצא');
         return;
     }
