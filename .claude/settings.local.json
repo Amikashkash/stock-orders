@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRefactor: Unify CreateOrderView and EditOrderView\n\nMajor refactoring to improve code quality and maintainability:\n\n✨ New Features:\n- Created ShoppingCart.js module for centralized cart management\n- Created OrderFormView.js unified component supporting both create/edit modes\n- Added full JSDoc documentation for all functions\n- Added data validation for localStorage operations\n- Added stock validation before adding items to cart\n\n🔧 Improvements:\n- Reduced code duplication from 1,288 to 1,100 lines (-15%)\n- Eliminated 100% of duplicate code between create and edit views\n- Improved error handling with try-catch blocks\n- Better state management with encapsulated ShoppingCart class\n- Enhanced mobile support with proper event listeners\n- Added localStorage expiration (24 hours)\n\n📦 Architecture:\n- Separated concerns: state (ShoppingCart) vs UI (OrderFormView)\n- Single Responsibility Principle applied\n- Full backward compatibility maintained\n- All existing imports still work unchanged\n\n🗄️ Backup:\n- Old files backed up to .backup/ directory\n- Can rollback if needed\n\n📝 Documentation:\n- Created REFACTORING.md with full details\n- Inline JSDoc comments for all functions\n- Clear upgrade path documented\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

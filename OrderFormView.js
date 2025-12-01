@@ -21,6 +21,7 @@ export class OrderFormView {
         this.draftOrderId = null;
         this.originalOrder = null;
         this.orderId = null;
+        this.isSaving = false; // Flag to prevent double submissions
     }
 
     /**
@@ -406,10 +407,24 @@ export class OrderFormView {
      * Handle save (create or update order)
      */
     async handleSave() {
-        if (this.mode === 'create') {
-            await this.saveOrder();
-        } else {
-            await this.updateOrder();
+        // Prevent double submissions
+        if (this.isSaving) {
+            window.showWarning('ההזמנה כבר בתהליך שמירה, אנא המתן...');
+            return;
+        }
+
+        this.isSaving = true;
+        this.updateButtonState(true); // Disable buttons
+
+        try {
+            if (this.mode === 'create') {
+                await this.saveOrder();
+            } else {
+                await this.updateOrder();
+            }
+        } finally {
+            this.isSaving = false;
+            // Button state will be updated by updateUI() after save completes
         }
     }
 
@@ -746,13 +761,34 @@ export class OrderFormView {
     updateButtonState(disabled) {
         const saveBtn = document.getElementById('save-order-btn');
         const fabBtn = document.getElementById('fab-save-btn');
+        const saveButtonText = this.mode === 'edit' ? 'עדכן הזמנה' : 'שמור הזמנה';
+        const savingText = this.mode === 'edit' ? 'מעדכן...' : 'שומר...';
 
         if (saveBtn) {
             saveBtn.disabled = disabled;
+
+            // Update button text and style while saving
+            if (disabled && this.isSaving) {
+                saveBtn.textContent = savingText;
+                saveBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                saveBtn.textContent = saveButtonText;
+                saveBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
         }
 
         if (fabBtn) {
             fabBtn.disabled = disabled;
+
+            // Update FAB style while saving
+            if (disabled && this.isSaving) {
+                fabBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                fabBtn.textContent = '⏳';
+            } else {
+                fabBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                fabBtn.textContent = '💾';
+            }
+
             if (disabled) {
                 fabBtn.classList.remove('visible');
             } else {
