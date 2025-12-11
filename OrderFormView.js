@@ -171,11 +171,20 @@ export class OrderFormView {
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="brand-filter" class="font-semibold">סנן לפי מותג:</label>
-                    <select id="brand-filter" class="input-style ml-2">
-                        <option value="">הצג הכל</option>
-                    </select>
+                <div class="mb-4 space-y-3">
+                    <div>
+                        <label for="search-products" class="font-semibold block mb-1">🔍 חיפוש מוצר:</label>
+                        <input type="text"
+                               id="search-products"
+                               class="input-style w-full"
+                               placeholder="חפש לפי שם מוצר או מותג...">
+                    </div>
+                    <div>
+                        <label for="brand-filter" class="font-semibold">סנן לפי מותג:</label>
+                        <select id="brand-filter" class="input-style ml-2">
+                            <option value="">הצג הכל</option>
+                        </select>
+                    </div>
                 </div>
 
                 ${this.mode === 'create' ? `
@@ -258,11 +267,21 @@ export class OrderFormView {
      * Setup event listeners
      */
     setupEventListeners() {
+        // Search input
+        const searchInput = document.getElementById('search-products');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const brandFilter = document.getElementById('brand-filter');
+                this.renderProducts(brandFilter ? brandFilter.value : '', e.target.value);
+            });
+        }
+
         // Brand filter
         const brandFilter = document.getElementById('brand-filter');
         if (brandFilter) {
             brandFilter.addEventListener('change', (e) => {
-                this.renderProducts(e.target.value);
+                const searchInput = document.getElementById('search-products');
+                this.renderProducts(e.target.value, searchInput ? searchInput.value : '');
                 this.cart.saveToStorage();
             });
         }
@@ -583,20 +602,55 @@ export class OrderFormView {
     /**
      * Render products list
      */
-    renderProducts(brandFilter = "") {
+    renderProducts(brandFilter = "", searchQuery = "") {
         const container = document.getElementById('products-list');
         if (!container) return;
 
-        let filtered = brandFilter ? this.products.filter(p => p.brand === brandFilter) : this.products;
+        let filtered = this.products;
+
+        // Apply brand filter
+        if (brandFilter) {
+            filtered = filtered.filter(p => p.brand === brandFilter);
+        }
+
+        // Apply search filter
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase().trim();
+            filtered = filtered.filter(p => {
+                const name = (p.name || '').toLowerCase();
+                const brand = (p.brand || '').toLowerCase();
+                return name.includes(query) || brand.includes(query);
+            });
+        }
+
         container.innerHTML = "";
 
         if (filtered.length === 0) {
+            const filterDescriptions = [];
+            if (brandFilter) filterDescriptions.push(`מותג: ${brandFilter}`);
+            if (searchQuery) filterDescriptions.push(`חיפוש: "${searchQuery}"`);
+
             container.innerHTML = `
                 <div class="text-center text-gray-500 p-8">
-                    <p>לא נמצאו מוצרים</p>
-                    ${brandFilter ? `<p class="text-sm">סנן לפי מותג: ${brandFilter}</p>` : ''}
+                    <p class="text-lg mb-2">😕 לא נמצאו מוצרים</p>
+                    ${filterDescriptions.length > 0 ? `<p class="text-sm">${filterDescriptions.join(', ')}</p>` : ''}
+                    <button id="clear-filters-btn" class="mt-3 text-indigo-600 hover:text-indigo-800 underline text-sm">
+                        נקה סינון
+                    </button>
                 </div>
             `;
+
+            // Add click handler for clear filters button
+            const clearBtn = document.getElementById('clear-filters-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    const brandSelect = document.getElementById('brand-filter');
+                    const searchInput = document.getElementById('search-products');
+                    if (brandSelect) brandSelect.value = '';
+                    if (searchInput) searchInput.value = '';
+                    this.renderProducts('', '');
+                });
+            }
             return;
         }
 
@@ -802,7 +856,11 @@ export class OrderFormView {
      */
     updateUI() {
         const brandFilter = document.getElementById('brand-filter');
-        this.renderProducts(brandFilter ? brandFilter.value : '');
+        const searchInput = document.getElementById('search-products');
+        this.renderProducts(
+            brandFilter ? brandFilter.value : '',
+            searchInput ? searchInput.value : ''
+        );
         this.renderCartIndicator();
         this.renderCartSummary();
     }
