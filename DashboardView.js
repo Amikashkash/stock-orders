@@ -5,7 +5,8 @@ let allProducts = [];
 let currentFilters = {
     search: '',
     brand: '',
-    stock: ''
+    stock: '',
+    showHidden: false
 };
 
 // --- Private Functions ---
@@ -26,22 +27,27 @@ function updateStats() {
 
 function filterProducts() {
     let filtered = [...allProducts];
-    
+
+    // סינון מוצרים מוסתרים (אלא אם נבחר להציג אותם)
+    if (!currentFilters.showHidden) {
+        filtered = filtered.filter(product => !product.isHidden);
+    }
+
     // סינון לפי חיפוש
     if (currentFilters.search) {
         const searchTerm = currentFilters.search.toLowerCase();
-        filtered = filtered.filter(product => 
+        filtered = filtered.filter(product =>
             (product.name || '').toLowerCase().includes(searchTerm) ||
             (product.brand || '').toLowerCase().includes(searchTerm) ||
             (product.sku || '').toLowerCase().includes(searchTerm)
         );
     }
-    
+
     // סינון לפי מותג
     if (currentFilters.brand) {
         filtered = filtered.filter(product => product.brand === currentFilters.brand);
     }
-    
+
     // סינון לפי מלאי
     if (currentFilters.stock) {
         switch (currentFilters.stock) {
@@ -59,7 +65,7 @@ function filterProducts() {
                 break;
         }
     }
-    
+
     renderFilteredProducts(filtered);
 }
 
@@ -86,8 +92,10 @@ function renderFilteredProducts(productsToShow) {
         else stockColor = 'text-green-600';
 
         const card = document.createElement('div');
-        card.className = "product-card bg-white border border-gray-200 rounded-lg shadow-md flex flex-col overflow-hidden";
+        const hiddenClass = product.isHidden ? 'opacity-60 border-yellow-400 border-2' : '';
+        card.className = `product-card bg-white border border-gray-200 rounded-lg shadow-md flex flex-col overflow-hidden ${hiddenClass}`;
         card.innerHTML = `
+            ${product.isHidden ? '<div class="bg-yellow-100 text-yellow-800 text-xs font-semibold py-1 px-2 text-center border-b border-yellow-300">🔒 מוצר מוסתר</div>' : ''}
             <div class="w-full h-40 flex items-center justify-center bg-gray-100">
                 <img src="${product.imageUrl || placeholderUrl}" alt="תמונה של ${product.name}" class="max-w-full max-h-full object-contain" onerror="this.onerror=null;this.src='${placeholderUrl}';">
             </div>
@@ -152,6 +160,15 @@ function setupFiltersAndSearch() {
     if (stockFilter) {
         stockFilter.addEventListener('change', (e) => {
             currentFilters.stock = e.target.value;
+            filterProducts();
+        });
+    }
+
+    // הצגת מוצרים מוסתרים
+    const showHiddenCheckbox = document.getElementById('show-hidden-products');
+    if (showHiddenCheckbox) {
+        showHiddenCheckbox.addEventListener('change', (e) => {
+            currentFilters.showHidden = e.target.checked;
             filterProducts();
         });
     }
@@ -358,6 +375,11 @@ export const DashboardView = {
                                 <option value="medium">מלאי בינוני (5-20)</option>
                                 <option value="high">מלאי גבוה (מעל 20)</option>
                             </select>
+                            <!-- הצגת מוצרים מוסתרים -->
+                            <label class="flex items-center gap-2 cursor-pointer bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                                <input type="checkbox" id="show-hidden-products" class="w-4 h-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded">
+                                <span class="text-sm text-gray-700">הצג מוצרים מוסתרים</span>
+                            </label>
                         </div>
                     </div>
                     <div id="product-list-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

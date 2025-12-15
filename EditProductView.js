@@ -22,21 +22,26 @@ async function handleUpdateProduct(db, form, showViewCallback) {
 
     try {
         const productRef = doc(db, "products", sku);
+        const isHidden = form.querySelector("#is-hidden").checked;
+
         await updateDoc(productRef, {
             name: form.querySelector("#name").value,
             brand: form.querySelector("#brand").value,
-            weight: { 
-                value: Number(form.querySelector("#weight").value) || null, 
-                unit: form.querySelector("#unit").value 
+            weight: {
+                value: Number(form.querySelector("#weight").value) || null,
+                unit: form.querySelector("#unit").value
             },
             imageUrl: form.querySelector("#image").value,
             cost: Number(form.querySelector("#cost").value) || 0,
             packageQuantity: Number(form.querySelector("#package-qty").value) || 0,
             stockQuantity: Number(form.querySelector("#stock").value) || 0,
+            isHidden: isHidden,
             updatedAt: serverTimestamp()
         });
-        showMessage(messageArea, 'המוצר עודכן בהצלחה!', false);
-        window.showSuccess('המוצר עודכן בהצלחה!');
+
+        const statusMsg = isHidden ? 'המוצר עודכן והוסתר בהצלחה!' : 'המוצר עודכן בהצלחה!';
+        showMessage(messageArea, statusMsg, false);
+        window.showSuccess(statusMsg);
         setTimeout(() => showViewCallback('dashboard'), 1500); // Go back to dashboard on success
     } catch (error) {
         console.error("Error updating document: ", error);
@@ -92,6 +97,15 @@ export const EditProductView = {
                 <div><label for="stock" class="block text-sm font-medium text-gray-700">כמות במלאי</label><input type="number" min="0" id="stock" value="${product.stockQuantity !== undefined ? product.stockQuantity : 0}" required class="input-style"></div>
                 <div><label for="cost" class="block text-sm font-medium text-gray-700">עלות (אופציונלי)</label><input type="number" step="0.01" min="0" id="cost" value="${product.cost || ''}" class="input-style"></div>
                 <div><label for="package-qty" class="block text-sm font-medium text-gray-700">כמות באריזה (אופציונלי)</label><input type="number" min="0" id="package-qty" value="${product.packageQuantity || ''}" class="input-style"></div>
+                <div class="md:col-span-2 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <label for="is-hidden" class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="is-hidden" ${product.isHidden ? 'checked' : ''} class="ml-2 w-5 h-5 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                        <div>
+                            <span class="font-medium text-gray-900">הסתר מוצר מרשימת ההזמנות</span>
+                            <p class="text-xs text-gray-600 mt-1">מוצר מוסתר לא יופיע בעת יצירת הזמנות חדשות, אך יישאר במערכת</p>
+                        </div>
+                    </label>
+                </div>
                 <div class="md:col-span-2 text-left">
                     <button type="submit" class="w-full md:w-auto bg-green-500 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-green-600 transition-colors flex justify-center items-center">${buttonText}</button>
                 </div>

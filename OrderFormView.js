@@ -103,7 +103,10 @@ export class OrderFormView {
             }
 
             const snap = await getDocs(collection(this.db, "products"));
-            this.products = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Filter out hidden products from order forms
+            this.products = snap.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(product => !product.isHidden);
 
             if (this.products.length === 0) {
                 console.warn('No products found in database');
