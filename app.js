@@ -34,10 +34,18 @@ const appState = {
     listeners: [],
 };
 
-async function showView(viewName, params = {}) {
+async function showView(viewName, params = {}, pushToHistory = true) {
     appState.currentView = viewName;
     if (params && params.productId) appState.editingProductId = params.productId;
     if (params && params.orderId) appState.pickingOrderId = params.orderId;
+
+    // Push state to browser history (for back/forward navigation)
+    if (pushToHistory) {
+        const stateObj = { view: viewName, params: params };
+        const hashUrl = `#${viewName}${params.orderId ? '/' + params.orderId : ''}`;
+        history.pushState(stateObj, '', hashUrl);
+    }
+
     await renderApp(appState.currentUser, params);
 }
 
@@ -88,7 +96,7 @@ async function renderApp(user, params = {}) {
                 break;
             case 'create-order':
                 mainContent.innerHTML = CreateOrderView.getHTML();
-                listeners = awaitOrSync(CreateOrderView.init, db, auth, showView);
+                listeners = await CreateOrderView.init(db, auth, showView) || [];
                 break;
             case 'edit-order':
                 await showEditOrderView(db, auth, showView, params);
@@ -166,6 +174,16 @@ function main() {
             }
         });
 
+        // Handle browser back/forward navigation
+        window.addEventListener('popstate', async (event) => {
+            if (event.state && event.state.view) {
+                await showView(event.state.view, event.state.params || {}, false);
+            } else {
+                // At initial state or no state - go to dashboard
+                await showView('dashboard', {}, false);
+            }
+        });
+
         getRedirectResult(auth).catch(error => {
             console.error("Error with redirect result:", error);
             const messageArea = document.getElementById('auth-message-area');
@@ -196,6 +214,11 @@ function main() {
                     }, { merge: true });
                 }
             }
+            // Initialize browser history state on app load
+            if (!history.state) {
+                history.replaceState({ view: appState.currentView, params: {} }, '', `#${appState.currentView}`);
+            }
+
             await renderApp(user);
         });
 

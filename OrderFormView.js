@@ -7,6 +7,9 @@ import { collection, getDocs, addDoc, doc, getDoc, updateDoc, deleteDoc } from "
 import { getNextOrderNumber } from './utils.js';
 import { ShoppingCart } from './ShoppingCart.js';
 
+// Module-level lock: prevents duplicate orders if multiple instances race to save
+let _orderSaveInProgress = false;
+
 /**
  * OrderFormView component
  */
@@ -22,6 +25,7 @@ export class OrderFormView {
         this.originalOrder = null;
         this.orderId = null;
         this.isSaving = false; // Flag to prevent double submissions
+        this._autoSaveIntervalId = null; // Stored so it can be cleared on cleanup
     }
 
     /**
@@ -78,7 +82,7 @@ export class OrderFormView {
 
             // Setup periodic auto-save for create mode
             if (this.mode === 'create') {
-                setInterval(() => {
+                this._autoSaveIntervalId = setInterval(() => {
                     if (this.cart.getTotalItems() > 0) {
                         this.cart.setupAutoSave(() => this.saveDraftOrder());
                     }
@@ -429,13 +433,14 @@ export class OrderFormView {
      * Handle save (create or update order)
      */
     async handleSave() {
-        // Prevent double submissions
-        if (this.isSaving) {
+        // Prevent double submissions — check both instance flag and module-level lock
+        if (this.isSaving || _orderSaveInProgress) {
             window.showWarning('ההזמנה כבר בתהליך שמירה, אנא המתן...');
             return;
         }
 
         this.isSaving = true;
+        _orderSaveInProgress = true;
         this.updateButtonState(true); // Disable buttons
 
         try {
@@ -446,6 +451,7 @@ export class OrderFormView {
             }
         } finally {
             this.isSaving = false;
+            _orderSaveInProgress = false;
             // Button state will be updated by updateUI() after save completes
         }
     }
@@ -670,72 +676,112 @@ export class OrderFormView {
         const isPackageMode = this.cart.isPackageMode(product.id);
         const imageUrl = product.imageUrl || product.image || '';
         const packageQty = product.packageQuantity || 1;
-        const effectiveStock = isPackageMode ? Math.floor((product.stockQuantity || 0) / packageQty) : (product.stockQuantity || 0);
-        const unitText = isPackageMode ? `מארז (${packageQty} יח')` : "יח'";
+        const stockQuantity = product.stockQuantity ?? 0;
+        const effectiveStock = isPackageMode ? Math.floor(stockQuantity / packageQty) : stockQuantity;
+        const unitText = isPackageMode ? 'מארז' : "יח'";
+        const hasStock = product.stockQuantity !== undefined && product.stockQuantity !== null;
+        const isOutOfStock = hasStock && effectiveStock === 0;
+        const isAtLimit = hasStock && qty >= effectiveStock;
 
         let weightStr = "לא צויין";
         if (product.weight?.value && product.weight?.unit) {
             weightStr = `${product.weight.value} ${product.weight.unit}`;
         }
 
-        const stockStr = (product.stockQuantity !== undefined && product.stockQuantity !== null)
-            ? `<div class="text-xs text-gray-700 mb-1">מלאי: <b>${effectiveStock}</b> ${unitText}</div>`
-            : `<div class="text-xs text-gray-400 mb-1">מלאי לא ידוע</div>`;
+        // Calculate stock level for color coding
+        const getStockLevel = (stock) => {
+            if (stock <= 5) return 'low';
+            if (stock <= 20) return 'medium';
+            return 'high';
+        };
+        const stockLevel = getStockLevel(effectiveStock);
+        const stockPercent = Math.min(100, (effectiveStock / 50) * 100); // Normalize to 50 max for visual
 
         const card = document.createElement('div');
-        card.className = `product-card relative border rounded-lg p-4 bg-white shadow-md hover:shadow-lg transition-all ${qty > 0 ? 'has-quantity' : ''}`;
+        card.className = `product-card relative border rounded-xl p-4 bg-white shadow-md hover:shadow-lg transition-all ${qty > 0 ? 'has-quantity' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`;
 
         card.innerHTML = `
-            ${imageUrl ? `
-                <img src="${imageUrl}"
-                     alt="${product.name}"
-                     class="w-24 h-24 object-contain mb-2 rounded mx-auto"
-                     onerror="this.style.opacity='0.5'">
-            ` : `
-                <div class="w-24 h-24 mb-2 mx-auto product-image-placeholder rounded flex items-center justify-center bg-gray-100">
-                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                </div>
-            `}
-            <div class="text-center">
-                <div class="font-bold text-lg mb-1">${product.name}</div>
-                <div class="text-sm text-gray-600 mb-1">${product.brand || ''}</div>
-                <div class="text-xs text-gray-500 mb-2">משקל: ${weightStr}</div>
-                ${stockStr}
-
-                ${packageQty > 1 ? `
-                    <div class="package-info-box rounded-lg p-2 mb-3 border border-blue-200 bg-blue-50">
-                        <label class="flex items-center justify-center cursor-pointer text-sm">
-                            <input type="checkbox"
-                                   class="package-mode-checkbox ml-2"
-                                   data-product-id="${product.id}"
-                                   ${isPackageMode ? 'checked' : ''}>
-                            <span class="text-blue-800 font-medium">הזמן לפי מארז (${packageQty} יח')</span>
-                        </label>
-                    </div>
+            <!-- Product Image -->
+            <div class="product-image-wrapper">
+                ${imageUrl ? `
+                    <img src="${imageUrl}"
+                         alt="${product.name}"
+                         onerror="this.parentElement.innerHTML='<div class=\\'product-image-placeholder-enhanced\\'><svg fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'1.5\\' d=\\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\\'></path></svg></div>'">
                 ` : `
-                    <div class="text-xs text-gray-500 mb-2 text-center">מוצר ליחידה בלבד</div>
-                `}
-
-                <div class="flex items-center justify-center gap-3 mb-2">
-                    <button class="decrease-qty-btn bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg font-bold transition-colors"
-                            data-product-id="${product.id}" title="הפחת">
-                        -
-                    </button>
-                    <span class="quantity-display font-bold text-xl min-w-[30px] text-center">${qty}</span>
-                    <button class="add-to-cart-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold transition-colors"
-                            data-product-id="${product.id}" title="הוסף">
-                        +
-                    </button>
-                </div>
-
-                ${qty > 0 ? `
-                    <div class="quantity-badge absolute top-2 right-2 bg-green-500 text-white rounded-full px-2 py-1 text-xs font-bold">
-                        ${qty} ${isPackageMode ? 'מארז' : 'יח\''}
+                    <div class="product-image-placeholder-enhanced">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
                     </div>
-                ` : ''}
+                `}
             </div>
+
+            <!-- Product Info -->
+            <div class="product-info-section">
+                <div class="product-name">${product.name}</div>
+                <div class="product-brand">${product.brand || ''}</div>
+                <div class="product-weight">⚖️ ${weightStr}</div>
+            </div>
+
+            <!-- Stock Indicator -->
+            ${hasStock ? `
+                ${isOutOfStock ? `
+                    <div class="out-of-stock-badge">אזל מהמלאי</div>
+                ` : `
+                    <div class="stock-text stock-${stockLevel}">
+                        <span>מלאי:</span>
+                        <span>${effectiveStock} ${unitText}</span>
+                    </div>
+                    <div class="stock-bar">
+                        <div class="stock-bar-fill stock-${stockLevel}" style="width: ${stockPercent}%"></div>
+                    </div>
+                `}
+            ` : `
+                <div class="text-xs text-gray-400 text-center my-2">מלאי לא ידוע</div>
+            `}
+
+            <!-- Package Mode Toggle -->
+            ${packageQty > 1 ? `
+                <label class="package-toggle-enhanced ${isPackageMode ? 'active' : ''}">
+                    <input type="checkbox"
+                           class="package-mode-checkbox sr-only"
+                           data-product-id="${product.id}"
+                           ${isPackageMode ? 'checked' : ''}>
+                    <span class="package-icon">📦</span>
+                    <span class="package-text">מארז של ${packageQty} יח'</span>
+                </label>
+            ` : `
+                <div class="text-xs text-gray-400 text-center my-3">מוצר ליחידה בלבד</div>
+            `}
+
+            <!-- Quantity Controls -->
+            <div class="qty-controls">
+                <button class="qty-btn qty-btn-remove decrease-qty-btn"
+                        data-product-id="${product.id}"
+                        title="הפחת"
+                        ${qty === 0 ? 'disabled' : ''}>
+                    −
+                </button>
+                <span class="qty-display">${qty}</span>
+                <button class="qty-btn qty-btn-add add-to-cart-btn"
+                        data-product-id="${product.id}"
+                        title="הוסף"
+                        ${isOutOfStock || isAtLimit ? 'disabled' : ''}>
+                    +
+                </button>
+            </div>
+
+            <!-- Stock Limit Warning -->
+            ${isAtLimit && !isOutOfStock && qty > 0 ? `
+                <div class="stock-limit-warning">⚠️ הגעת למקסימום המלאי</div>
+            ` : ''}
+
+            <!-- Quantity Badge -->
+            ${qty > 0 ? `
+                <div class="quantity-badge absolute top-2 right-2 bg-green-500 text-white rounded-full px-2 py-1 text-xs font-bold shadow-lg">
+                    ${qty} ${isPackageMode ? 'מארז' : "יח'"}
+                </div>
+            ` : ''}
         `;
 
         return card;
@@ -907,7 +953,14 @@ export class OrderFormView {
      * Get cleanup functions for event listeners
      */
     getCleanupFunctions() {
-        return [];
+        return [
+            () => {
+                if (this._autoSaveIntervalId) {
+                    clearInterval(this._autoSaveIntervalId);
+                    this._autoSaveIntervalId = null;
+                }
+            }
+        ];
     }
 }
 
