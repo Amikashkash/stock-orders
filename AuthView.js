@@ -34,7 +34,7 @@ export const AuthView = {
                 </div>
             </div>`;
     },
-    attachEventListeners: function(auth, GoogleAuthProvider, signInWithRedirect, db) {
+    attachEventListeners: function(auth, GoogleAuthProvider, signInWithPopup, db) {
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const googleLoginBtn = document.getElementById('google-login-btn');
@@ -90,7 +90,7 @@ export const AuthView = {
         // Google login
         googleLoginBtn.addEventListener('click', async () => {
             const provider = new GoogleAuthProvider();
-            await signInWithRedirect(auth, provider);
+            await signInWithPopup(auth, provider);
         });
         
             
