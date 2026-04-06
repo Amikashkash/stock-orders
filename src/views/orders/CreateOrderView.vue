@@ -48,12 +48,13 @@
           @increase="handleIncrease(product)"
           @decrease="cartStore.remove(product.id, 1)"
           @toggle-package="cartStore.togglePackageMode(product.id)"
+          @image-click="p => lightbox.show(p.imageUrl, p.name)"
         />
       </v-col>
     </v-row>
 
-    <!-- Cart summary + submit -->
-    <v-row>
+    <!-- Cart summary + notes -->
+    <v-row class="mb-24">
       <v-col cols="12" md="6">
         <CartSummary @clear="cartStore.clear()" />
 
@@ -64,37 +65,29 @@
           class="mt-4"
           placeholder="הוראות מיוחדות, החלפות מותרות..."
         />
-
-        <v-btn
-          color="primary"
-          block
-          size="large"
-          class="mt-4"
-          :loading="saving"
-          :disabled="cartStore.totalItems === 0"
-          prepend-icon="mdi-check-circle"
-          @click="handleSave"
-        >
-          שמור הזמנה
-        </v-btn>
       </v-col>
     </v-row>
 
-    <!-- FAB for mobile -->
+    <ImageLightbox ref="lightbox" />
+
+    <!-- FAB -->
     <v-btn
-      v-if="cartStore.totalItems > 0"
       position="fixed"
-      location="bottom left"
+      location="bottom center"
       size="large"
       color="primary"
       rounded="xl"
       elevation="8"
-      class="ma-4"
+      class="mb-6 px-6"
       :loading="saving"
+      :disabled="cartStore.totalItems === 0"
       @click="handleSave"
     >
-      <v-icon start>mdi-check</v-icon>
-      שמור ({{ cartStore.totalItems }})
+      <v-icon start>mdi-check-circle</v-icon>
+      שמור הזמנה
+      <v-chip v-if="cartStore.totalItems > 0" size="x-small" color="white" text-color="primary" class="ms-2">
+        {{ cartStore.totalItems }}
+      </v-chip>
     </v-btn>
   </div>
 </template>
@@ -109,6 +102,9 @@ import { useNotificationStore } from '@/stores/notifications'
 import { useHaptics } from '@/composables/useHaptics'
 import ProductCardOrder from '@/components/products/ProductCardOrder.vue'
 import CartSummary from '@/components/orders/CartSummary.vue'
+import ImageLightbox from '@/components/common/ImageLightbox.vue'
+
+const lightbox = ref(null)
 
 const router = useRouter()
 const cartStore = useCartStore()

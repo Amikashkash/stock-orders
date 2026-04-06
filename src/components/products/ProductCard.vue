@@ -18,6 +18,8 @@
       height="140"
       cover
       class="bg-grey-lighten-4"
+      style="cursor: zoom-in;"
+      @click="emit('image-click', product)"
     >
       <template #error>
         <div class="d-flex align-center justify-center h-100">
@@ -34,7 +36,7 @@
     <v-card-text class="pb-2">
       <div class="text-subtitle-2 font-weight-bold text-truncate mb-1">{{ product.name }}</div>
       <div class="text-caption text-medium-emphasis mb-1">{{ product.brand }}</div>
-      <div v-if="product.weight?.value" class="text-caption text-medium-emphasis mb-2">
+      <div v-if="product.weight?.value" class="text-body-2 font-weight-bold mb-2">
         ⚖️ {{ product.weight.value }} {{ product.weight.unit }}
       </div>
 
@@ -73,6 +75,7 @@ import ProductBadge from './ProductBadge.vue'
 import StockLevelBar from './StockLevelBar.vue'
 
 defineProps({ product: { type: Object, required: true } })
+const emit = defineEmits(['image-click'])
 
 const authStore = useAuthStore()
 const productsStore = useProductsStore()

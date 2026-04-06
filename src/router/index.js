@@ -25,6 +25,7 @@ const routes = [
       { path: 'orders/picking', name: 'picking-orders', component: () => import('@/views/orders/PickingOrdersView.vue') },
       { path: 'orders/:id/pick', name: 'pick-order', component: () => import('@/views/picking/PickOrderDetailsView.vue') },
       { path: 'stats', name: 'sales-stats', component: () => import('@/views/stats/SalesStatsView.vue') },
+      { path: 'admin/users', name: 'admin-users', component: () => import('@/views/admin/AdminUsersView.vue'), meta: { adminOnly: true } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

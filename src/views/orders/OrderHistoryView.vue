@@ -114,7 +114,8 @@ const groupedOrders = computed(() => {
 })
 
 function canEdit(order) {
-  return order.status === 'pending' && order.createdBy === authStore.user?.uid
+  if (order.status !== 'pending') return false
+  return authStore.isAdmin || order.createdBy === authStore.user?.uid
 }
 
 async function handleDelete(order) {

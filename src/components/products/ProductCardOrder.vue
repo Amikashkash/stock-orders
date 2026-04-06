@@ -15,7 +15,14 @@
     </div>
 
     <!-- Image -->
-    <v-img :src="product.imageUrl || ''" height="100" cover class="bg-grey-lighten-4 rounded-t-xl">
+    <v-img
+      :src="product.imageUrl || ''"
+      height="100"
+      cover
+      class="bg-grey-lighten-4 rounded-t-xl"
+      style="cursor: zoom-in;"
+      @click="emit('image-click', product)"
+    >
       <template #error>
         <div class="d-flex align-center justify-center h-100">
           <v-icon size="32" color="grey-lighten-2">mdi-cube-outline</v-icon>
@@ -77,7 +84,7 @@ const props = defineProps({
   isPackage: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['increase', 'decrease', 'togglePackage'])
+const emit = defineEmits(['increase', 'decrease', 'togglePackage', 'image-click'])
 
 const localPackageMode = ref(props.isPackage)
 

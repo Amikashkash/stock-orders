@@ -41,7 +41,16 @@
       >
         <v-card-text class="pa-4">
           <div class="d-flex align-start gap-3">
-            <v-img :src="item.product?.imageUrl || ''" width="60" height="60" cover rounded="lg" class="flex-shrink-0 bg-grey-lighten-4" />
+            <v-img
+              :src="item.product?.imageUrl || ''"
+              width="60"
+              height="60"
+              cover
+              rounded="lg"
+              class="flex-shrink-0 bg-grey-lighten-4"
+              style="cursor: zoom-in;"
+              @click="lightbox.show(item.product?.imageUrl, item.product?.name)"
+            />
             <div class="flex-grow-1">
               <div class="text-subtitle-2 font-weight-bold">{{ item.product?.name || item.productId }}</div>
               <div class="text-caption text-medium-emphasis">{{ item.product?.brand }}</div>
@@ -68,24 +77,32 @@
         </v-card-text>
       </v-card>
 
-      <!-- Notes & complete -->
-      <v-textarea v-model="pickingNotes" label="הערות ליקוט" rows="2" class="mt-4" />
-
-      <v-btn
-        color="success"
-        block
-        size="large"
-        class="mt-4"
-        :loading="completing"
-        :disabled="pickedCount === 0"
-        prepend-icon="mdi-check-all"
-        @click="handleComplete"
-      >
-        סיים ליקוט
-      </v-btn>
+      <!-- Notes -->
+      <v-textarea v-model="pickingNotes" label="הערות ליקוט" rows="2" class="mt-4 mb-24" />
     </template>
 
+    <!-- FAB -->
+    <v-btn
+      position="fixed"
+      location="bottom center"
+      size="large"
+      color="success"
+      rounded="xl"
+      elevation="8"
+      class="mb-6 px-6"
+      :loading="completing"
+      :disabled="pickedCount === 0"
+      @click="handleComplete"
+    >
+      <v-icon start>mdi-check-all</v-icon>
+      סיים ליקוט
+      <v-chip v-if="pickedCount > 0" size="x-small" color="white" class="ms-2">
+        {{ pickedCount }}/{{ items.length }}
+      </v-chip>
+    </v-btn>
+
     <ConfirmDialog ref="confirmRef" />
+    <ImageLightbox ref="lightbox" />
   </div>
 </template>
 
@@ -98,6 +115,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useOrdersStore } from '@/stores/orders'
 import { useNotificationStore } from '@/stores/notifications'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import ImageLightbox from '@/components/common/ImageLightbox.vue'
+
+const lightbox = ref(null)
 
 const route = useRoute()
 const router = useRouter()

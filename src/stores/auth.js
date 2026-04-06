@@ -2,8 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import {
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail,
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth'
@@ -50,9 +53,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function initAuth() {
-    // Handle Google redirect result
-    getRedirectResult(auth).catch((err) => console.error('Redirect result error:', err))
-
     onAuthStateChanged(auth, async (firebaseUser) => {
       user.value = firebaseUser
       if (firebaseUser) {
@@ -66,7 +66,21 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signInWithGoogle() {
     const provider = new GoogleAuthProvider()
-    await signInWithRedirect(auth, provider)
+    await signInWithPopup(auth, provider)
+  }
+
+  async function signInWithEmail(email, password) {
+    await signInWithEmailAndPassword(auth, email, password)
+  }
+
+  async function registerWithEmail(email, password, fullName) {
+    const cred = await createUserWithEmailAndPassword(auth, email, password)
+    if (fullName) await updateProfile(cred.user, { displayName: fullName })
+    await upsertUserDoc({ ...cred.user, displayName: fullName || cred.user.displayName })
+  }
+
+  async function resetPassword(email) {
+    await sendPasswordResetEmail(auth, email)
   }
 
   async function signOut() {
@@ -85,6 +99,9 @@ export const useAuthStore = defineStore('auth', () => {
     storeName,
     initAuth,
     signInWithGoogle,
+    signInWithEmail,
+    registerWithEmail,
+    resetPassword,
     signOut,
     loadUserDoc,
   }

@@ -73,19 +73,24 @@
         md="4"
         lg="3"
       >
-        <ProductCard :product="product" />
+        <ProductCard :product="product" @image-click="p => lightbox.show(p.imageUrl || p.image, p.name)" />
       </v-col>
     </v-row>
+
+    <ImageLightbox ref="lightbox" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useProductsStore } from '@/stores/products'
 import { useOrdersStore } from '@/stores/orders'
 import ProductCard from '@/components/products/ProductCard.vue'
 import ProductFilters from '@/components/products/ProductFilters.vue'
+import ImageLightbox from '@/components/common/ImageLightbox.vue'
+
+const lightbox = ref(null)
 
 const authStore = useAuthStore()
 const productsStore = useProductsStore()

@@ -29,20 +29,37 @@
             @increase="cartStore.add(product.id, 1)"
             @decrease="cartStore.remove(product.id, 1)"
             @toggle-package="cartStore.togglePackageMode(product.id)"
+            @image-click="p => lightbox.show(p.imageUrl, p.name)"
           />
         </v-col>
       </v-row>
 
-      <v-row>
+      <v-row class="mb-24">
         <v-col cols="12" md="6">
           <CartSummary @clear="cartStore.clear()" />
           <v-textarea v-model="notes" label="הערות למלקט" rows="3" class="mt-4" />
-          <v-btn color="primary" block size="large" class="mt-4" :loading="saving" :disabled="cartStore.totalItems === 0" @click="handleSave">
-            עדכן הזמנה
-          </v-btn>
         </v-col>
       </v-row>
     </template>
+
+    <ImageLightbox ref="lightbox" />
+
+    <!-- FAB -->
+    <v-btn
+      position="fixed"
+      location="bottom center"
+      size="large"
+      color="primary"
+      rounded="xl"
+      elevation="8"
+      class="mb-6 px-6"
+      :loading="saving"
+      :disabled="cartStore.totalItems === 0"
+      @click="handleSave"
+    >
+      <v-icon start>mdi-check-circle</v-icon>
+      עדכן הזמנה
+    </v-btn>
   </div>
 </template>
 
@@ -57,6 +74,9 @@ import { useOrdersStore } from '@/stores/orders'
 import { useNotificationStore } from '@/stores/notifications'
 import ProductCardOrder from '@/components/products/ProductCardOrder.vue'
 import CartSummary from '@/components/orders/CartSummary.vue'
+import ImageLightbox from '@/components/common/ImageLightbox.vue'
+
+const lightbox = ref(null)
 
 const route = useRoute()
 const router = useRouter()
