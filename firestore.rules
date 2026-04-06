@@ -23,10 +23,12 @@ service cloud.firestore {
       allow list: if isAdmin();
     }
 
-    // Products — all authenticated users can read; only admins can write
+    // Products — all authenticated users can read and update stock (for picking completion)
+    // only admins can create or delete products
     match /products/{sku} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow update: if isAuthenticated();
+      allow create, delete: if isAdmin();
     }
 
     // Orders — all authenticated users can read (needed for picking queue)
