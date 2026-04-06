@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 import { getFirestore, setDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 import { AuthView } from "./AuthView.js";
 import { DashboardView } from "./DashboardView.js";
@@ -138,7 +138,7 @@ async function renderApp(user, params = {}) {
 
     } else {
         appRoot.innerHTML = AuthView.getHTML();
-        AuthView.attachEventListeners(auth, GoogleAuthProvider, signInWithRedirect, db);
+        AuthView.attachEventListeners(auth, GoogleAuthProvider, signInWithPopup, db);
     }
 }
 
@@ -184,11 +184,6 @@ function main() {
             }
         });
 
-        getRedirectResult(auth).catch(error => {
-            console.error("Error with redirect result:", error);
-            const messageArea = document.getElementById('auth-message-area');
-            if (messageArea) messageArea.textContent = 'שגיאה בהתחברות עם גוגל.';
-        });
 
         onAuthStateChanged(auth, async (user) => {
             appState.currentUser = user;
