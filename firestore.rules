@@ -37,7 +37,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
-        && (isAdmin() || resource.data.createdBy == request.auth.uid);
+        && (isAdmin()
+          || resource.data.createdBy == request.auth.uid
+          || (request.resource.data.status == 'picked' && resource.data.status in ['pending', 'in-progress']));
       allow delete: if isAuthenticated()
         && (isAdmin() || resource.data.createdBy == request.auth.uid);
 
