@@ -29,10 +29,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Orders — users see their own, admins see all
+    // Orders — all authenticated users can read (needed for picking queue)
+    // only the order owner or admin can update/delete
     match /orders/{orderId} {
-      allow read: if isAuthenticated()
-        && (isAdmin() || resource.data.createdBy == request.auth.uid);
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update: if isAuthenticated()
         && (isAdmin() || resource.data.createdBy == request.auth.uid);
