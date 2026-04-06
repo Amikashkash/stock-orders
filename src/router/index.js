@@ -62,4 +62,12 @@ router.beforeEach(async (to) => {
   if (to.meta.adminOnly && !authStore.isAdmin) return '/'
 })
 
+// When a lazy-loaded chunk fails (stale deploy), force a full reload to get fresh assets
+router.onError((error, to) => {
+  if (error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Importing a module script failed')) {
+    window.location.href = to.fullPath
+  }
+})
+
 export default router
