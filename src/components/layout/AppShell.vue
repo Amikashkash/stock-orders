@@ -3,7 +3,11 @@
 
     <!-- App Bar — always visible -->
     <v-app-bar elevation="1" color="white">
-      <v-app-bar-nav-icon @click="toggleDrawer" />
+      <v-tooltip text="תפריט ניווט" location="bottom">
+        <template #activator="{ props }">
+          <v-app-bar-nav-icon v-bind="props" :class="{ 'menu-hint': menuHint }" @click="toggleDrawer" />
+        </template>
+      </v-tooltip>
       <v-app-bar-title class="font-weight-bold text-primary">ניהול מחסן</v-app-bar-title>
       <template #append>
         <span class="text-body-2 text-medium-emphasis me-2 d-none d-sm-inline">{{ authStore.displayName }}</span>
@@ -103,8 +107,10 @@ const router = useRouter()
 const { mobile } = useDisplay()
 
 const isMobile = computed(() => mobile.value)
-const drawer = ref(true)
-const rail = ref(false)
+const drawer = ref(false)
+const rail = ref(true)
+const menuHint = ref(true)
+setTimeout(() => { menuHint.value = false }, 2000)
 
 function toggleDrawer() {
   if (isMobile.value) {
@@ -137,3 +143,14 @@ async function handleSignOut() {
   router.push('/auth')
 }
 </script>
+
+<style scoped>
+@keyframes menuPulse {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.3); }
+  60% { transform: scale(1.1); }
+}
+.menu-hint {
+  animation: menuPulse 0.6s ease-in-out 3;
+}
+</style>
