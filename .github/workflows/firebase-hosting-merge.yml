@@ -17,9 +17,9 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - name: Deploy to Firebase
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STOCK_ORDERS_75BE0 }}' > /tmp/gcp-key.json
-          npx firebase-tools deploy --project stock-orders-75be0 --only firestore:indexes,firestore:rules,hosting
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STOCK_ORDERS_75BE0 }}
+          channelId: live
+          projectId: stock-orders-75be0
