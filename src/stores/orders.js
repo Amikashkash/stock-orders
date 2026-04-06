@@ -29,7 +29,7 @@ export const useOrdersStore = defineStore('orders', () => {
     } else {
       q = query(
         collection(db, 'orders'),
-        where('storeName', '==', authStore.storeName),
+        where('createdBy', '==', authStore.user.uid),
         orderBy('createdAt', 'desc'),
         limit(100)
       )
