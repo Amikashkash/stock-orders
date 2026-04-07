@@ -15,8 +15,8 @@
     <!-- Image -->
     <v-img
       :src="product.imageUrl || product.image || ''"
-      height="140"
-      cover
+      height="200"
+      contain
       class="bg-grey-lighten-4"
       style="cursor: zoom-in;"
       @click="emit('image-click', product)"
