@@ -45,7 +45,9 @@ export const useProductsStore = defineStore('products', () => {
       list = list.filter((p) => !p.isHidden)
     }
 
-    if (filters.value.category) {
+    if (filters.value.category === '__none__') {
+      list = list.filter((p) => !p.category)
+    } else if (filters.value.category) {
       list = list.filter((p) => p.category === filters.value.category)
     }
 

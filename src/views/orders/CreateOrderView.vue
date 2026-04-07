@@ -23,7 +23,7 @@
       <v-col cols="6" sm="3">
         <v-select
           v-model="categoryFilter"
-          :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c }))]"
+          :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c })), { title: 'ללא קטגוריה', value: '__none__' }]"
           label="קטגוריה"
           hide-details
           density="compact"
@@ -138,7 +138,8 @@ const availableBrands = computed(() => {
 
 const visibleProducts = computed(() => {
   let list = productsStore.products.filter((p) => !p.isHidden)
-  if (categoryFilter.value) list = list.filter((p) => p.category === categoryFilter.value)
+  if (categoryFilter.value === '__none__') list = list.filter((p) => !p.category)
+  else if (categoryFilter.value) list = list.filter((p) => p.category === categoryFilter.value)
   if (brandFilter.value) list = list.filter((p) => p.brand === brandFilter.value)
   if (search.value) {
     const q = search.value.toLowerCase()

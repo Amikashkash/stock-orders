@@ -14,7 +14,7 @@
     <v-col cols="6" sm="3">
       <v-select
         :model-value="filters.category"
-        :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c }))]"
+        :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c })), { title: 'ללא קטגוריה', value: '__none__' }]"
         label="קטגוריה"
         hide-details
         density="compact"
