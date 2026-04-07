@@ -1,6 +1,6 @@
 <template>
   <v-row dense class="mb-4">
-    <v-col cols="12" sm="5">
+    <v-col cols="12" sm="4">
       <v-text-field
         :model-value="filters.search"
         label="חיפוש מוצר..."
@@ -13,15 +13,25 @@
     </v-col>
     <v-col cols="6" sm="3">
       <v-select
+        :model-value="filters.category"
+        :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c }))]"
+        label="קטגוריה"
+        hide-details
+        density="compact"
+        @update:model-value="onCategoryChange($event)"
+      />
+    </v-col>
+    <v-col cols="6" sm="3">
+      <v-select
         :model-value="filters.brand"
-        :items="[{ title: 'כל המותגים', value: '' }, ...brands.map(b => ({ title: b, value: b }))]"
+        :items="[{ title: 'כל המותגים', value: '' }, ...availableBrands.map(b => ({ title: b, value: b }))]"
         label="מותג"
         hide-details
         density="compact"
         @update:model-value="productsStore.setFilter('brand', $event)"
       />
     </v-col>
-    <v-col cols="6" sm="3">
+    <v-col cols="6" sm="2">
       <v-select
         :model-value="filters.stock"
         :items="stockItems"
@@ -31,7 +41,7 @@
         @update:model-value="productsStore.setFilter('stock', $event)"
       />
     </v-col>
-    <v-col v-if="showHiddenToggle" cols="12" sm="1" class="d-flex align-center">
+    <v-col v-if="showHiddenToggle" cols="6" sm="auto" class="d-flex align-center">
       <v-switch
         :model-value="filters.showHidden"
         label="הצג מוסתרים"
@@ -47,12 +57,23 @@
 <script setup>
 import { computed } from 'vue'
 import { useProductsStore } from '@/stores/products'
+import { CATEGORIES } from '@/config/categories'
 
 defineProps({ showHiddenToggle: { type: Boolean, default: false } })
 
 const productsStore = useProductsStore()
 const filters = computed(() => productsStore.filters)
-const brands = computed(() => productsStore.brands)
+
+const availableBrands = computed(() => {
+  const cat = filters.value.category
+  if (!cat) return productsStore.brands
+  return productsStore.brandsByCategory[cat] || []
+})
+
+function onCategoryChange(cat) {
+  productsStore.setFilter('category', cat)
+  productsStore.setFilter('brand', '')
+}
 
 const stockItems = [
   { title: 'כל המלאי', value: '' },

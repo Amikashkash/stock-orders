@@ -25,6 +25,9 @@
             <v-col cols="12" sm="6">
               <v-text-field v-model="form.brand" label="מותג" />
             </v-col>
+            <v-col cols="12" sm="6">
+              <v-select v-model="form.category" :items="[{ title: 'ללא קטגוריה', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c }))]" label="קטגוריה" />
+            </v-col>
             <v-col cols="6" sm="3">
               <v-text-field v-model.number="form.weightValue" label="משקל/נפח" type="number" min="0" />
             </v-col>
@@ -64,6 +67,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useNotificationStore } from '@/stores/notifications'
+import { CATEGORIES } from '@/config/categories'
 
 const route = useRoute()
 const weightUnits = ['ק"ג', 'גר', 'ל', 'מ"ל']
@@ -88,6 +92,7 @@ onMounted(async () => {
   form.value = {
     name: product.value.name || '',
     brand: product.value.brand || '',
+    category: product.value.category || '',
     weightValue: product.value.weight?.value || '',
     weightUnit: product.value.weight?.unit || 'ק"ג',
     packageQuantity: product.value.packageQuantity || 1,
@@ -106,6 +111,7 @@ async function handleSubmit() {
     await updateDoc(doc(db, 'products', sku), {
       name: form.value.name,
       brand: form.value.brand || '',
+      category: form.value.category || '',
       weight: form.value.weightValue ? { value: form.value.weightValue, unit: form.value.weightUnit } : null,
       packageQuantity: form.value.packageQuantity || 1,
       cost: form.value.cost || null,

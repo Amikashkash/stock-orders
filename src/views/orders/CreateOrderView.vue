@@ -10,7 +10,7 @@
 
     <!-- Search & filter -->
     <v-row dense class="mb-4">
-      <v-col cols="12" sm="6">
+      <v-col cols="12" sm="5">
         <v-text-field
           v-model="search"
           label="חיפוש מוצר..."
@@ -20,10 +20,19 @@
           density="compact"
         />
       </v-col>
-      <v-col cols="12" sm="4">
+      <v-col cols="6" sm="3">
+        <v-select
+          v-model="categoryFilter"
+          :items="[{ title: 'כל הקטגוריות', value: '' }, ...CATEGORIES.map(c => ({ title: c, value: c }))]"
+          label="קטגוריה"
+          hide-details
+          density="compact"
+        />
+      </v-col>
+      <v-col cols="6" sm="4">
         <v-select
           v-model="brandFilter"
-          :items="[{ title: 'כל המותגים', value: '' }, ...brands.map(b => ({ title: b, value: b }))]"
+          :items="[{ title: 'כל המותגים', value: '' }, ...availableBrands.map(b => ({ title: b, value: b }))]"
           label="מותג"
           hide-details
           density="compact"
@@ -93,13 +102,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useProductsStore } from '@/stores/products'
 import { useOrdersStore } from '@/stores/orders'
 import { useNotificationStore } from '@/stores/notifications'
 import { useHaptics } from '@/composables/useHaptics'
+import { CATEGORIES } from '@/config/categories'
 import ProductCardOrder from '@/components/products/ProductCardOrder.vue'
 import CartSummary from '@/components/orders/CartSummary.vue'
 import ImageLightbox from '@/components/common/ImageLightbox.vue'
@@ -114,14 +124,21 @@ const notify = useNotificationStore()
 const haptics = useHaptics()
 
 const search = ref('')
+const categoryFilter = ref('')
 const brandFilter = ref('')
 const notes = ref('')
 const saving = ref(false)
 
-const brands = computed(() => productsStore.brands)
+watch(categoryFilter, () => { brandFilter.value = '' })
+
+const availableBrands = computed(() => {
+  if (!categoryFilter.value) return productsStore.brands
+  return productsStore.brandsByCategory[categoryFilter.value] || []
+})
 
 const visibleProducts = computed(() => {
   let list = productsStore.products.filter((p) => !p.isHidden)
+  if (categoryFilter.value) list = list.filter((p) => p.category === categoryFilter.value)
   if (brandFilter.value) list = list.filter((p) => p.brand === brandFilter.value)
   if (search.value) {
     const q = search.value.toLowerCase()

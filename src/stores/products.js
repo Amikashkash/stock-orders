@@ -16,6 +16,7 @@ export const useProductsStore = defineStore('products', () => {
   const loading = ref(false)
   const filters = ref({
     search: '',
+    category: '',
     brand: '',
     stock: '', // 'low' | 'medium' | 'high' | ''
     showHidden: false,
@@ -26,11 +27,26 @@ export const useProductsStore = defineStore('products', () => {
     [...new Set(products.value.map((p) => p.brand).filter(Boolean))].sort()
   )
 
+  const brandsByCategory = computed(() => {
+    const map = {}
+    for (const p of products.value) {
+      if (!p.brand) continue
+      const cat = p.category || ''
+      if (!map[cat]) map[cat] = new Set()
+      map[cat].add(p.brand)
+    }
+    return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v].sort()]))
+  })
+
   const filteredProducts = computed(() => {
     let list = products.value
 
     if (!filters.value.showHidden) {
       list = list.filter((p) => !p.isHidden)
+    }
+
+    if (filters.value.category) {
+      list = list.filter((p) => p.category === filters.value.category)
     }
 
     if (filters.value.brand) {
@@ -95,7 +111,7 @@ export const useProductsStore = defineStore('products', () => {
   }
 
   function resetFilters() {
-    filters.value = { search: '', brand: '', stock: '', showHidden: false }
+    filters.value = { search: '', category: '', brand: '', stock: '', showHidden: false }
   }
 
   return {
@@ -103,6 +119,7 @@ export const useProductsStore = defineStore('products', () => {
     loading,
     filters,
     brands,
+    brandsByCategory,
     filteredProducts,
     lowStockCount,
     totalCount,
