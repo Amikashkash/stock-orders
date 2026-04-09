@@ -31,11 +31,11 @@
     </v-img>
 
     <v-card-text class="pb-1 pt-2">
-      <div class="text-subtitle-2 font-weight-bold text-truncate">
-        {{ product.name }}
-        <span v-if="product.weight?.value" class="text-caption text-medium-emphasis font-weight-regular"> · {{ product.weight.value }}{{ product.weight.unit }}</span>
+      <div class="text-subtitle-2 font-weight-bold text-truncate">{{ product.name }}</div>
+      <div class="text-caption text-medium-emphasis">
+        {{ product.brand }}
+        <span v-if="product.weight?.value"> · {{ product.weight.value }}{{ product.weight.unit }}</span>
       </div>
-      <div class="text-caption text-medium-emphasis">{{ product.brand }}</div>
 
       <!-- Stock -->
       <div v-if="product.stockQuantity != null" class="text-caption mt-1" :class="isOutOfStock ? 'text-error' : 'text-medium-emphasis'">
