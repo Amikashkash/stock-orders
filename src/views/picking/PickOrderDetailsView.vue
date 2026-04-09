@@ -55,7 +55,7 @@
               <div class="text-subtitle-2 font-weight-bold">{{ item.product?.name || item.productId }}</div>
               <div class="text-caption text-medium-emphasis">
                 {{ item.product?.brand }}
-                <span v-if="item.product?.weight?.value"> · {{ item.product.weight.value }}{{ item.product.weight.unit }}</span>
+                <span v-if="item.product?.weight?.value"> · <strong>{{ item.product.weight.value }}{{ item.product.weight.unit }}</strong></span>
               </div>
               <div class="text-body-2 mt-1">
                 הוזמן: <strong>{{ item.quantityOrdered }}</strong>

@@ -34,7 +34,7 @@
       <div class="text-subtitle-2 font-weight-bold text-truncate">{{ product.name }}</div>
       <div class="text-caption text-medium-emphasis">
         {{ product.brand }}
-        <span v-if="product.weight?.value"> · {{ product.weight.value }}{{ product.weight.unit }}</span>
+        <span v-if="product.weight?.value"> · <strong>{{ product.weight.value }}{{ product.weight.unit }}</strong></span>
       </div>
 
       <!-- Stock -->
