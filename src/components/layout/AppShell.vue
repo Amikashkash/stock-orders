@@ -116,7 +116,12 @@ function toggleDrawer() {
   if (isMobile.value) {
     drawer.value = !drawer.value
   } else {
-    rail.value = !rail.value
+    if (!drawer.value) {
+      drawer.value = true
+      rail.value = false
+    } else {
+      rail.value = !rail.value
+    }
   }
 }
 

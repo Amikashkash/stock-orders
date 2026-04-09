@@ -31,7 +31,10 @@
     </v-img>
 
     <v-card-text class="pb-1 pt-2">
-      <div class="text-subtitle-2 font-weight-bold text-truncate">{{ product.name }}</div>
+      <div class="text-subtitle-2 font-weight-bold text-truncate">
+        {{ product.name }}
+        <span v-if="product.weight?.value" class="text-caption text-medium-emphasis font-weight-regular"> · {{ product.weight.value }}{{ product.weight.unit }}</span>
+      </div>
       <div class="text-caption text-medium-emphasis">{{ product.brand }}</div>
 
       <!-- Stock -->

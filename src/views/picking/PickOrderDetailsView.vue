@@ -52,7 +52,10 @@
               @click="lightbox.show(item.product?.imageUrl, item.product?.name)"
             />
             <div class="flex-grow-1">
-              <div class="text-subtitle-2 font-weight-bold">{{ item.product?.name || item.productId }}</div>
+              <div class="text-subtitle-2 font-weight-bold">
+                {{ item.product?.name || item.productId }}
+                <span v-if="item.product?.weight?.value" class="text-caption text-medium-emphasis font-weight-regular"> · {{ item.product.weight.value }}{{ item.product.weight.unit }}</span>
+              </div>
               <div class="text-caption text-medium-emphasis">{{ item.product?.brand }}</div>
               <div class="text-body-2 mt-1">
                 הוזמן: <strong>{{ item.quantityOrdered }}</strong>
