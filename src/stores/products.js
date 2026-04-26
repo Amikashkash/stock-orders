@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { collection, onSnapshot, query, orderBy, where, getDocs, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
-const BADGE_DAYS = 7
+const BADGE_DAYS = 14
 
 function daysSince(timestamp) {
   if (!timestamp) return Infinity
@@ -69,7 +69,11 @@ export const useProductsStore = defineStore('products', () => {
     if (filters.value.stock === 'medium') list = list.filter((p) => (p.stockQuantity ?? 0) > 5 && (p.stockQuantity ?? 0) <= 20)
     if (filters.value.stock === 'high') list = list.filter((p) => (p.stockQuantity ?? 0) > 20)
 
-    return list
+    return [...list].sort((a, b) => {
+      const aNew = isNew(a) ? 0 : 1
+      const bNew = isNew(b) ? 0 : 1
+      return aNew - bNew
+    })
   })
 
   const lowStockCount = computed(() => products.value.filter((p) => !p.isHidden && (p.stockQuantity ?? 0) <= 5).length)
