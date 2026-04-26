@@ -129,7 +129,7 @@ const navItems = computed(() => {
   const items = [
     { name: 'dashboard', title: 'דשבורד', icon: 'mdi-view-dashboard', to: '/' },
     { name: 'create-order', title: 'צור הזמנה', icon: 'mdi-plus-circle', to: '/orders/create' },
-    { name: 'order-history', title: 'הזמנות שלי', icon: 'mdi-clipboard-list', to: '/orders/history' },
+    { name: 'order-history', title: authStore.isAdmin ? 'היסטוריית הזמנות' : 'הזמנות שלי', icon: 'mdi-clipboard-list', to: '/orders/history' },
     { name: 'picking-orders', title: 'ליקוט הזמנות', icon: 'mdi-package-variant', to: '/orders/picking', badge: ordersStore.pendingCount },
     { name: 'sales-stats', title: 'סטטיסטיקות', icon: 'mdi-chart-bar', to: '/stats' },
   ]
@@ -137,6 +137,7 @@ const navItems = computed(() => {
   if (authStore.isAdmin) {
     items.push({ name: 'add-product', title: 'הוסף מוצר', icon: 'mdi-cube-outline', to: '/products/add' })
     items.push({ name: 'stock-history-global', title: 'היסטוריית מלאי', icon: 'mdi-history', to: '/stock/history' })
+    items.push({ name: 'admin-brands', title: 'ניהול מותגים', icon: 'mdi-tag-multiple', to: '/admin/brands' })
     items.push({ name: 'admin-users', title: 'ניהול משתמשים', icon: 'mdi-account-group', to: '/admin/users' })
   }
 

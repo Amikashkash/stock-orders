@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot, query, orderBy, where, getDocs, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 
 const BADGE_DAYS = 7
@@ -116,6 +116,14 @@ export const useProductsStore = defineStore('products', () => {
     filters.value = { search: '', category: '', brand: '', stock: '', showHidden: false }
   }
 
+  async function renameBrand(oldName, newName) {
+    const snap = await getDocs(query(collection(db, 'products'), where('brand', '==', oldName)))
+    if (snap.empty) return
+    const batch = writeBatch(db)
+    snap.docs.forEach((d) => batch.update(doc(db, 'products', d.id), { brand: newName, updatedAt: serverTimestamp() }))
+    await batch.commit()
+  }
+
   return {
     products,
     loading,
@@ -132,5 +140,6 @@ export const useProductsStore = defineStore('products', () => {
     getById,
     setFilter,
     resetFilters,
+    renameBrand,
   }
 })

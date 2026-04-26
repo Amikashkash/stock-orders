@@ -52,7 +52,7 @@
                     variant="tonal"
                     color="secondary"
                     icon="mdi-eye"
-                    :to="`/orders/${order.id}/pick`"
+                    :to="`/orders/${order.id}/view`"
                   />
                 </div>
               </div>
