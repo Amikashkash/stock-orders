@@ -69,7 +69,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useCartStore } from '@/stores/cart'
 import { useProductsStore } from '@/stores/products'
@@ -119,7 +119,11 @@ const visibleProducts = computed(() => {
 onMounted(async () => {
   productsStore.startListener()
   cartStore.initialize('edit', orderId)
-  const itemsSnap = await getDocs(collection(db, 'orders', orderId, 'orderItems'))
+  const [orderSnap, itemsSnap] = await Promise.all([
+    getDoc(doc(db, 'orders', orderId)),
+    getDocs(collection(db, 'orders', orderId, 'orderItems')),
+  ])
+  if (orderSnap.exists()) notes.value = orderSnap.data().notes || ''
   cartStore.loadFromOrderItems(itemsSnap.docs.map((d) => d.data()))
   loadingOrder.value = false
 })
