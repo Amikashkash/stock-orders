@@ -23,6 +23,16 @@
         </v-col>
       </v-row>
 
+      <!-- Sort -->
+      <div class="d-flex align-center gap-2 mb-4">
+        <span class="text-body-2 text-medium-emphasis">מיון:</span>
+        <v-btn-toggle v-model="sortBy" density="compact" variant="outlined" color="primary" mandatory>
+          <v-btn value="name" size="small">שם</v-btn>
+          <v-btn value="weight-asc" size="small">משקל ↑</v-btn>
+          <v-btn value="weight-desc" size="small">משקל ↓</v-btn>
+        </v-btn-toggle>
+      </div>
+
       <v-row class="mb-6">
         <v-col v-for="product in visibleProducts" :key="product.id" cols="6" sm="4" md="3" lg="2">
           <ProductCardOrder
@@ -93,7 +103,16 @@ const orderId = route.params.id
 const search = ref('')
 const categoryFilter = ref('')
 const brandFilter = ref('')
+const sortBy = ref('name')
 const notes = ref('')
+
+function weightGrams(product) {
+  const v = product.weight?.value
+  if (!v) return Infinity
+  const unit = product.weight?.unit
+  if (unit === 'ק"ג' || unit === 'ל') return v * 1000
+  return v
+}
 const loadingOrder = ref(true)
 const saving = ref(false)
 
@@ -113,6 +132,8 @@ const visibleProducts = computed(() => {
     const q = search.value.toLowerCase()
     list = list.filter((p) => (p.name || '').toLowerCase().includes(q))
   }
+  if (sortBy.value === 'weight-asc') return [...list].sort((a, b) => weightGrams(a) - weightGrams(b))
+  if (sortBy.value === 'weight-desc') return [...list].sort((a, b) => weightGrams(b) - weightGrams(a))
   return list
 })
 
