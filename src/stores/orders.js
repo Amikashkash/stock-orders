@@ -114,6 +114,25 @@ export const useOrdersStore = defineStore('orders', () => {
     await batch.commit()
   }
 
+  async function reopenOrder(orderId) {
+    await updateDoc(doc(db, 'orders', orderId), {
+      status: 'in-progress',
+      isRevived: true,
+      revivedAt: serverTimestamp(),
+    })
+  }
+
+  async function confirmDispatch(orderId, pickingNotes) {
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'orders', orderId), {
+      status: 'picked',
+      pickedAt: serverTimestamp(),
+      pickingNotes: pickingNotes || '',
+      isRevived: false,
+    })
+    await batch.commit()
+  }
+
   async function completePicking(orderId, pickedItems, pickingNotes, authStore) {
     const batch = writeBatch(db)
 
@@ -171,6 +190,8 @@ export const useOrdersStore = defineStore('orders', () => {
     createOrder,
     updateOrder,
     deleteOrder,
+    reopenOrder,
+    confirmDispatch,
     completePicking,
   }
 })

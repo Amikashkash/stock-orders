@@ -8,6 +8,18 @@
       </div>
     </div>
 
+    <!-- Revived banner -->
+    <v-alert
+      v-if="order?.isRevived"
+      type="warning"
+      variant="tonal"
+      rounded="xl"
+      class="mb-4"
+      icon="mdi-restore"
+    >
+      הזמנה זו הוחייתה — הסחורה כבר נלקטה ומוכנה למשלוח. לחץ "אשר משלוח" לסיום.
+    </v-alert>
+
     <!-- Progress bar -->
     <v-card rounded="xl" class="mb-4 pa-4" color="blue-lighten-5" flat>
       <div class="d-flex justify-space-between mb-2">
@@ -98,7 +110,7 @@
       @click="handleComplete"
     >
       <v-icon start>mdi-check-all</v-icon>
-      סיים ליקוט
+      {{ order?.isRevived ? 'אשר משלוח' : 'סיים ליקוט' }}
       <v-chip v-if="pickedCount > 0" size="x-small" color="white" class="ms-2">
         {{ pickedCount }}/{{ items.length }}
       </v-chip>
@@ -174,12 +186,13 @@ onMounted(async () => {
         const pSnap = await getDoc(doc(db, 'products', data.productId))
         productCache[data.productId] = pSnap.exists() ? { id: pSnap.id, ...pSnap.data() } : null
       }
+      const alreadyPicked = order.value?.isRevived || data.status === 'picked'
       return {
         ...data,
         product: productCache[data.productId],
         currentStock: productCache[data.productId]?.stockQuantity ?? null,
         quantityPicked: data.quantityPicked || 0,
-        isPicked: data.status === 'picked',
+        isPicked: alreadyPicked,
       }
     })
   )
@@ -187,18 +200,25 @@ onMounted(async () => {
 })
 
 async function handleComplete() {
+  const isRevived = order.value?.isRevived
   const confirmed = await confirmRef.value.open({
-    title: 'סיום ליקוט',
-    message: 'האם לסיים את הליקוט ולעדכן את המלאי?',
-    confirmText: 'סיים',
+    title: isRevived ? 'אישור משלוח' : 'סיום ליקוט',
+    message: isRevived
+      ? 'לאשר שהמשלוח נשלח? המלאי לא ישתנה.'
+      : 'האם לסיים את הליקוט ולעדכן את המלאי?',
+    confirmText: isRevived ? 'אשר משלוח' : 'סיים',
     confirmColor: 'success',
   })
   if (!confirmed) return
 
   completing.value = true
   try {
-    await ordersStore.completePicking(orderId, items.value, pickingNotes.value, authStore)
-    notify.showSuccess('הליקוט הושלם!')
+    if (isRevived) {
+      await ordersStore.confirmDispatch(orderId, pickingNotes.value)
+    } else {
+      await ordersStore.completePicking(orderId, items.value, pickingNotes.value, authStore)
+    }
+    notify.showSuccess(isRevived ? 'המשלוח אושר!' : 'הליקוט הושלם!')
     router.push('/orders/picking')
   } catch (err) {
     notify.showError('שגיאה: ' + err.message)

@@ -22,7 +22,10 @@
             <div class="text-subtitle-1 font-weight-bold mb-1">{{ order.displayId }}</div>
             <div class="text-body-2 text-medium-emphasis">חנות: {{ order.storeName }}</div>
             <div class="text-caption text-medium-emphasis">{{ formatDate(order.createdAt) }}</div>
-            <div v-if="order.notes" class="text-caption mt-1 pa-2 bg-grey-lighten-5 rounded">📝 {{ order.notes }}</div>
+            <div v-if="order.isRevived" class="text-caption mt-1 pa-2 bg-warning-lighten-4 rounded font-weight-bold text-warning">
+            ⚠️ הוחיית — הסחורה כבר נלקטה
+          </div>
+          <div v-if="order.notes" class="text-caption mt-1 pa-2 bg-grey-lighten-5 rounded">📝 {{ order.notes }}</div>
           </div>
           <OrderStatusChip :status="order.status" />
         </div>

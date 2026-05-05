@@ -48,6 +48,15 @@
                     @click="handleDelete(order)"
                   />
                   <v-btn
+                    v-if="authStore.isAdmin && order.status === 'picked'"
+                    size="x-small"
+                    variant="tonal"
+                    color="warning"
+                    icon="mdi-restore"
+                    title="החיה הזמנה"
+                    @click.prevent="handleRevive(order)"
+                  />
+                  <v-btn
                     size="x-small"
                     variant="tonal"
                     color="secondary"
@@ -116,6 +125,22 @@ const groupedOrders = computed(() => {
 function canEdit(order) {
   if (order.status !== 'pending') return false
   return authStore.isAdmin || order.createdBy === authStore.user?.uid
+}
+
+async function handleRevive(order) {
+  const confirmed = await confirmRef.value.open({
+    title: 'החיית הזמנה',
+    message: `הזמנה ${order.displayId} תוחזר לתור הליקוט. המלאי לא ישתנה — הסחורה כבר נלקטה. להמשיך?`,
+    confirmText: 'החיה',
+    confirmColor: 'warning',
+  })
+  if (!confirmed) return
+  try {
+    await ordersStore.reopenOrder(order.id)
+    notify.showSuccess(`הזמנה ${order.displayId} הוחייתה`)
+  } catch (err) {
+    notify.showError('שגיאה: ' + err.message)
+  }
 }
 
 async function handleDelete(order) {
