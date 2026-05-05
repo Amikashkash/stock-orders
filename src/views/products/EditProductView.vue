@@ -11,8 +11,8 @@
         <v-alert type="info" variant="tonal" rounded="lg" class="mb-4">
           <div class="d-flex align-center justify-space-between">
             <span>מלאי נוכחי: <strong>{{ product.stockQuantity ?? 0 }}</strong> יחידות</span>
-            <v-btn size="small" color="secondary" variant="elevated" :to="`/products/${sku}/stock`" prepend-icon="mdi-plus">
-              הוסף מלאי
+            <v-btn size="small" color="secondary" variant="elevated" :to="`/products/${sku}/stock`" prepend-icon="mdi-pencil">
+              עדכן מלאי
             </v-btn>
           </div>
         </v-alert>

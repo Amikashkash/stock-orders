@@ -7,9 +7,9 @@ export function useStockEntry() {
   const authStore = useAuthStore()
   const notify = useNotificationStore()
 
-  async function insertStock(productId, productName, amountAdded, notes = '') {
-    if (!amountAdded || amountAdded <= 0) {
-      notify.showError('כמות חייבת להיות גדולה מ-0')
+  async function adjustStock(productId, productName, amount, notes = '', source = 'manual') {
+    if (!amount || amount === 0) {
+      notify.showError('כמות חייבת להיות שונה מ-0')
       return false
     }
 
@@ -21,37 +21,43 @@ export function useStockEntry() {
         if (!productSnap.exists()) throw new Error('המוצר לא נמצא')
 
         const currentStock = productSnap.data().stockQuantity || 0
-        const newStock = currentStock + amountAdded
+        const newStock = currentStock + amount
 
         const entryRef = doc(collection(db, 'stockEntries'))
         tx.set(entryRef, {
           productId,
           productName,
-          amountAdded,
+          amountAdded: amount,
           previousStock: currentStock,
           newStock,
           date: serverTimestamp(),
           enteredBy: authStore.user.uid,
           enteredByName: authStore.displayName,
           notes,
-          source: 'manual',
+          source,
         })
 
-        tx.update(productRef, {
-          stockQuantity: newStock,
-          lastRestockedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        })
+        const update = { stockQuantity: newStock, updatedAt: serverTimestamp() }
+        if (amount > 0) update.lastRestockedAt = serverTimestamp()
+        tx.update(productRef, update)
       })
 
-      notify.showSuccess(`מלאי עודכן בהצלחה! נוספו ${amountAdded} יחידות`)
+      if (amount > 0) {
+        notify.showSuccess(`נוספו ${amount} יחידות למלאי`)
+      } else {
+        notify.showSuccess(`הופחתו ${Math.abs(amount)} יחידות מהמלאי`)
+      }
       return true
     } catch (err) {
-      console.error('insertStock error:', err)
+      console.error('adjustStock error:', err)
       notify.showError('שגיאה בעדכון המלאי: ' + err.message)
       return false
     }
   }
 
-  return { insertStock }
+  async function insertStock(productId, productName, amountAdded, notes = '') {
+    return adjustStock(productId, productName, amountAdded, notes, 'manual')
+  }
+
+  return { insertStock, adjustStock }
 }
