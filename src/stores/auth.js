@@ -20,6 +20,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!user.value)
   const isAdmin = computed(() => userDoc.value?.role === 'admin')
+  const isWarehouse = computed(() => userDoc.value?.role === 'warehouse')
+  const canManageProducts = computed(() => isAdmin.value || isWarehouse.value)
   const displayName = computed(() => userDoc.value?.fullName || user.value?.email || '')
   const storeName = computed(() => userDoc.value?.storeName || '')
 
@@ -95,6 +97,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     isAdmin,
+    isWarehouse,
+    canManageProducts,
     displayName,
     storeName,
     initAuth,

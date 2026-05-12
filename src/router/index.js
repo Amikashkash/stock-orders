@@ -18,7 +18,7 @@ const routes = [
       { path: 'products/:sku/edit', name: 'edit-product', component: () => import('@/views/products/EditProductView.vue') },
       { path: 'products/:sku/stock', name: 'insert-stock', component: () => import('@/views/stock/InsertStockView.vue') },
       { path: 'products/:sku/history', name: 'stock-history', component: () => import('@/views/stock/StockHistoryView.vue') },
-      { path: 'stock/history', name: 'stock-history-global', component: () => import('@/views/stock/StockHistoryView.vue'), meta: { adminOnly: true } },
+      { path: 'stock/history', name: 'stock-history-global', component: () => import('@/views/stock/StockHistoryView.vue'), meta: { productsOnly: true } },
       { path: 'orders/create', name: 'create-order', component: () => import('@/views/orders/CreateOrderView.vue') },
       { path: 'orders/:id/edit', name: 'edit-order', component: () => import('@/views/orders/EditOrderView.vue') },
       { path: 'orders/history', name: 'order-history', component: () => import('@/views/orders/OrderHistoryView.vue') },
@@ -62,6 +62,7 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) return '/auth'
   if (to.meta.requiresGuest && authStore.isAuthenticated) return '/'
   if (to.meta.adminOnly && !authStore.isAdmin) return '/'
+  if (to.meta.productsOnly && !authStore.canManageProducts) return '/'
 })
 
 // When a lazy-loaded chunk fails (stale deploy), force a full reload to get fresh assets

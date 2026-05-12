@@ -8,13 +8,7 @@
 
     <template v-else>
       <!-- Duplicate warning -->
-      <v-alert
-        v-if="duplicateGroups.length"
-        type="warning"
-        variant="tonal"
-        rounded="xl"
-        class="mb-4"
-      >
+      <v-alert v-if="duplicateGroups.length" type="warning" variant="tonal" rounded="xl" class="mb-4">
         <div class="font-weight-bold mb-2">נמצאו {{ duplicateGroups.length }} כתובות אימייל כפולות</div>
         <div v-for="group in duplicateGroups" :key="group.email" class="d-flex align-center justify-space-between mb-1">
           <span class="text-body-2">{{ group.email }} ({{ group.users.length }} משתמשים)</span>
@@ -22,37 +16,46 @@
         </div>
       </v-alert>
 
-      <v-card rounded="xl" elevation="1">
-        <v-data-table
-          :headers="headers"
-          :items="users"
-          :items-per-page="50"
-          item-value="id"
-        >
-          <!-- Row highlight for duplicates -->
-          <template #item="{ item, props: rowProps }">
-            <tr v-bind="rowProps" :class="isDuplicate(item.email) ? 'bg-orange-lighten-5' : ''">
-              <td>{{ item.fullName }}</td>
-              <td>
-                {{ item.email }}
-                <v-icon v-if="isDuplicate(item.email)" size="x-small" color="warning" class="ms-1">mdi-alert</v-icon>
-              </td>
-              <td>{{ item.storeName }}</td>
-              <td>
-                <v-chip :color="item.role === 'admin' ? 'error' : 'primary'" size="small" variant="tonal">
-                  {{ item.role === 'admin' ? 'מנהל' : 'חנות' }}
-                </v-chip>
-              </td>
-              <td class="text-end">
-                <div class="d-flex gap-1 justify-end">
-                  <v-btn size="x-small" variant="tonal" color="primary" icon="mdi-pencil" @click="openEdit(item)" />
-                  <v-btn size="x-small" variant="tonal" color="warning" icon="mdi-lock-reset" title="שלח איפוס סיסמה" @click="sendReset(item)" />
-                </div>
-              </td>
-            </tr>
-          </template>
-        </v-data-table>
+      <!-- Search -->
+      <v-text-field
+        v-model="search"
+        label="חיפוש לפי שם, אימייל או חנות"
+        prepend-inner-icon="mdi-magnify"
+        clearable
+        hide-details
+        density="compact"
+        class="mb-4"
+      />
+
+      <div class="text-body-2 text-medium-emphasis mb-3">{{ filteredUsers.length }} משתמשים</div>
+
+      <v-card v-for="user in filteredUsers" :key="user.id" rounded="xl" class="mb-3" elevation="1"
+        :color="isDuplicate(user.email) ? 'orange-lighten-5' : undefined">
+        <v-card-text class="pa-4">
+          <div class="d-flex align-start justify-space-between">
+            <div>
+              <div class="text-subtitle-2 font-weight-bold mb-1">{{ user.fullName }}</div>
+              <div class="text-body-2 text-medium-emphasis">{{ user.email }}</div>
+              <div v-if="user.storeName" class="text-caption text-medium-emphasis">חנות: {{ user.storeName }}</div>
+            </div>
+            <div class="d-flex flex-column align-end gap-2">
+              <v-chip :color="roleColor(user.role)" size="small" variant="tonal">
+                {{ roleLabel(user.role) }}
+              </v-chip>
+              <div class="d-flex gap-1">
+                <v-btn size="x-small" variant="tonal" color="primary" icon="mdi-pencil" title="ערוך" @click="openEdit(user)" />
+                <v-btn size="x-small" variant="tonal" color="warning" icon="mdi-lock-reset" title="איפוס סיסמה" @click="sendReset(user)" />
+                <v-btn size="x-small" variant="tonal" color="error" icon="mdi-delete" title="הסר משתמש" @click="handleDelete(user)" />
+              </div>
+            </div>
+          </div>
+        </v-card-text>
       </v-card>
+
+      <div v-if="filteredUsers.length === 0" class="text-center py-12 text-medium-emphasis">
+        <v-icon size="64" class="mb-4">mdi-account-off</v-icon>
+        <div>לא נמצאו משתמשים</div>
+      </div>
     </template>
 
     <!-- Edit dialog -->
@@ -61,13 +64,12 @@
         <v-card-title class="pa-4">עריכת משתמש</v-card-title>
         <v-card-text>
           <div class="text-body-2 text-medium-emphasis mb-4">{{ editUser.email }}</div>
-          <v-text-field v-model="editUser.fullName" label="שם מלא" variant="outlined" density="compact" class="mb-3" />
-          <v-text-field v-model="editUser.storeName" label="שם חנות" variant="outlined" density="compact" class="mb-3" />
+          <v-text-field v-model="editUser.fullName" label="שם מלא" density="compact" class="mb-3" />
+          <v-text-field v-model="editUser.storeName" label="שם חנות" density="compact" class="mb-3" />
           <v-select
             v-model="editUser.role"
-            :items="[{ title: 'חנות', value: 'store' }, { title: 'מנהל', value: 'admin' }]"
+            :items="roleOptions"
             label="תפקיד"
-            variant="outlined"
             density="compact"
           />
         </v-card-text>
@@ -84,25 +86,15 @@
       <v-card v-if="mergeGroup" rounded="xl" class="pa-2">
         <v-card-title class="pa-4">מיזוג משתמשים כפולים</v-card-title>
         <v-card-text>
-          <p class="text-body-2 mb-4">
-            בחר איזה רשומה לשמור. הרשומה שלא תישמר תימחק, וכל ההזמנות שלה יועברו לרשומה הנשמרת.
-          </p>
+          <p class="text-body-2 mb-4">בחר איזה רשומה לשמור. הרשומה שלא תישמר תימחק, וכל ההזמנות שלה יועברו לרשומה הנשמרת.</p>
           <v-radio-group v-model="keepUserId">
-            <v-card
-              v-for="u in mergeGroup.users"
-              :key="u.id"
-              variant="outlined"
-              rounded="lg"
-              class="mb-2 pa-2"
-              :color="keepUserId === u.id ? 'primary' : undefined"
-              style="cursor:pointer"
-              @click="keepUserId = u.id"
-            >
+            <v-card v-for="u in mergeGroup.users" :key="u.id" variant="outlined" rounded="lg" class="mb-2 pa-2"
+              :color="keepUserId === u.id ? 'primary' : undefined" style="cursor:pointer" @click="keepUserId = u.id">
               <div class="d-flex align-center gap-3">
                 <v-radio :value="u.id" hide-details />
                 <div>
                   <div class="font-weight-bold">{{ u.fullName }}</div>
-                  <div class="text-caption text-medium-emphasis">{{ u.storeName }} · {{ u.role === 'admin' ? 'מנהל' : 'חנות' }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ u.storeName }} · {{ roleLabel(u.role) }}</div>
                   <div class="text-caption text-medium-emphasis">UID: {{ u.id.slice(0, 12) }}...</div>
                 </div>
               </div>
@@ -112,12 +104,12 @@
         <v-card-actions class="px-4 pb-4 gap-2">
           <v-btn variant="text" @click="mergeDialog = false">ביטול</v-btn>
           <v-spacer />
-          <v-btn color="error" :loading="merging" :disabled="!keepUserId" @click="confirmMerge">
-            מזג ומחק כפיל
-          </v-btn>
+          <v-btn color="error" :loading="merging" :disabled="!keepUserId" @click="confirmMerge">מזג ומחק כפיל</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <ConfirmDialog ref="confirmRef" />
   </div>
 </template>
 
@@ -127,27 +119,47 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch, query, wher
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 const authStore = useAuthStore()
 const notify = useNotificationStore()
+const confirmRef = ref(null)
 
 const loading = ref(true)
 const saving = ref(false)
 const merging = ref(false)
 const users = ref([])
+const search = ref('')
 const editDialog = ref(false)
 const editUser = ref(null)
 const mergeDialog = ref(false)
 const mergeGroup = ref(null)
 const keepUserId = ref(null)
 
-const headers = [
-  { title: 'שם', key: 'fullName', sortable: true },
-  { title: 'אימייל', key: 'email', sortable: true },
-  { title: 'חנות', key: 'storeName', sortable: true },
-  { title: 'תפקיד', key: 'role', sortable: true },
-  { title: 'פעולות', key: 'actions', sortable: false, align: 'end' },
+const roleOptions = [
+  { title: 'חנות', value: 'store' },
+  { title: 'מחסנאי', value: 'warehouse' },
+  { title: 'מנהל', value: 'admin' },
 ]
+
+function roleLabel(role) {
+  return { admin: 'מנהל', warehouse: 'מחסנאי', store: 'חנות' }[role] ?? role
+}
+
+function roleColor(role) {
+  return { admin: 'error', warehouse: 'orange', store: 'primary' }[role] ?? 'grey'
+}
+
+const filteredUsers = computed(() => {
+  if (!search.value) return users.value
+  const q = search.value.toLowerCase()
+  return users.value.filter(
+    (u) =>
+      (u.fullName || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.storeName || '').toLowerCase().includes(q)
+  )
+})
 
 const duplicateGroups = computed(() => {
   const emailMap = {}
@@ -196,6 +208,23 @@ async function saveUser() {
   }
 }
 
+async function handleDelete(user) {
+  const confirmed = await confirmRef.value.open({
+    title: 'הסרת משתמש',
+    message: `להסיר את ${user.fullName}? הגישה שלהם תיחסם. פעולה זו אינה מוחקת את חשבון הכניסה.`,
+    confirmText: 'הסר',
+    confirmColor: 'error',
+  })
+  if (!confirmed) return
+  try {
+    await deleteDoc(doc(db, 'users', user.id))
+    users.value = users.value.filter((u) => u.id !== user.id)
+    notify.showSuccess('המשתמש הוסר')
+  } catch (err) {
+    notify.showError('שגיאה: ' + err.message)
+  }
+}
+
 async function sendReset(user) {
   if (!user.email) { notify.showError('אין אימייל למשתמש זה'); return }
   try {
@@ -208,7 +237,6 @@ async function sendReset(user) {
 
 function openMerge(group) {
   mergeGroup.value = group
-  // Pre-select the user with admin role, or the first one
   const admin = group.users.find((u) => u.role === 'admin')
   keepUserId.value = admin ? admin.id : group.users[0].id
   mergeDialog.value = true
@@ -217,28 +245,18 @@ function openMerge(group) {
 async function confirmMerge() {
   if (!keepUserId.value || !mergeGroup.value) return
   merging.value = true
-
   const deleteUsers = mergeGroup.value.users.filter((u) => u.id !== keepUserId.value)
-
   try {
     for (const deleteUser of deleteUsers) {
-      // Re-assign orders from deleted user to kept user
-      const ordersSnap = await getDocs(
-        query(collection(db, 'orders'), where('createdBy', '==', deleteUser.id))
-      )
+      const ordersSnap = await getDocs(query(collection(db, 'orders'), where('createdBy', '==', deleteUser.id)))
       if (ordersSnap.docs.length > 0) {
         const batch = writeBatch(db)
-        ordersSnap.docs.forEach((d) => {
-          batch.update(d.ref, { createdBy: keepUserId.value })
-        })
+        ordersSnap.docs.forEach((d) => batch.update(d.ref, { createdBy: keepUserId.value }))
         await batch.commit()
       }
-
-      // Delete duplicate user doc
       await deleteDoc(doc(db, 'users', deleteUser.id))
       users.value = users.value.filter((u) => u.id !== deleteUser.id)
     }
-
     notify.showSuccess('המיזוג הושלם בהצלחה')
     mergeDialog.value = false
   } catch (err) {

@@ -45,7 +45,7 @@
 
     <v-card-actions class="pt-0 px-4 pb-3">
       <v-btn
-        v-if="authStore.isAdmin"
+        v-if="authStore.canManageProducts"
         size="small"
         variant="tonal"
         color="primary"
@@ -55,14 +55,14 @@
         עריכה
       </v-btn>
       <v-btn
-        v-if="authStore.isAdmin"
+        v-if="authStore.canManageProducts"
         size="small"
         variant="tonal"
         color="secondary"
         :to="`/products/${product.id}/stock`"
-        prepend-icon="mdi-plus"
+        prepend-icon="mdi-pencil"
       >
-        הוסף מלאי
+        עדכן מלאי
       </v-btn>
     </v-card-actions>
   </v-card>

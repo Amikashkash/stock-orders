@@ -134,9 +134,11 @@ const navItems = computed(() => {
     { name: 'sales-stats', title: 'סטטיסטיקות', icon: 'mdi-chart-bar', to: '/stats' },
   ]
 
-  if (authStore.isAdmin) {
+  if (authStore.canManageProducts) {
     items.push({ name: 'add-product', title: 'הוסף מוצר', icon: 'mdi-cube-outline', to: '/products/add' })
     items.push({ name: 'stock-history-global', title: 'היסטוריית מלאי', icon: 'mdi-history', to: '/stock/history' })
+  }
+  if (authStore.isAdmin) {
     items.push({ name: 'admin-brands', title: 'ניהול מותגים', icon: 'mdi-tag-multiple', to: '/admin/brands' })
     items.push({ name: 'admin-users', title: 'ניהול משתמשים', icon: 'mdi-account-group', to: '/admin/users' })
   }
