@@ -48,7 +48,7 @@
         :key="item.id"
         rounded="xl"
         class="mb-3"
-        :color="item.status === 'picked' ? 'green-lighten-5' : 'white'"
+        :color="item.isPicked ? 'green-lighten-5' : 'white'"
         elevation="1"
       >
         <v-card-text class="pa-4">
@@ -83,9 +83,9 @@
                 @change="onPickedToggle(item)"
               />
               <div class="d-flex align-center gap-1">
-                <v-btn icon="mdi-minus" size="x-small" variant="tonal" :disabled="item.quantityPicked <= 0" @click="item.quantityPicked--" />
+                <v-btn icon="mdi-minus" size="x-small" variant="tonal" :disabled="item.quantityPicked <= 0" @click="decreaseQty(item)" />
                 <span class="text-body-2 font-weight-bold px-1">{{ item.quantityPicked }}</span>
-                <v-btn icon="mdi-plus" size="x-small" variant="tonal" :disabled="item.quantityPicked >= item.quantityOrdered" @click="item.quantityPicked++" />
+                <v-btn icon="mdi-plus" size="x-small" variant="tonal" :disabled="item.quantityPicked >= item.quantityOrdered" @click="increaseQty(item)" />
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@
       </v-card>
 
       <!-- Notes -->
-      <v-textarea v-model="pickingNotes" label="הערות ליקוט" rows="2" class="mt-4 mb-24" />
+      <v-textarea v-model="pickingNotes" label="הערות ליקוט" rows="2" class="mt-4 mb-24" @input="scheduleNotesSave" />
     </template>
 
     <!-- FAB -->
@@ -122,9 +122,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, updateDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useOrdersStore } from '@/stores/orders'
@@ -133,7 +133,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import ImageLightbox from '@/components/common/ImageLightbox.vue'
 
 const lightbox = ref(null)
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -149,16 +148,54 @@ const sortBy = ref('brand')
 const loading = ref(true)
 const completing = ref(false)
 
-const sortedItems = computed(() => {
-  return [...items.value].sort((a, b) => {
+const sortedItems = computed(() =>
+  [...items.value].sort((a, b) => {
     const key = sortBy.value === 'brand' ? (a.product?.brand || '') : (a.product?.name || '')
     const keyB = sortBy.value === 'brand' ? (b.product?.brand || '') : (b.product?.name || '')
     return key.localeCompare(keyB, 'he')
   })
-})
+)
 
 const pickedCount = computed(() => items.value.filter((i) => i.isPicked).length)
 const progressPercent = computed(() => items.value.length ? (pickedCount.value / items.value.length) * 100 : 0)
+
+// --- Real-time progress persistence ---
+
+async function saveItemProgress(item) {
+  try {
+    await updateDoc(doc(db, 'orders', orderId, 'orderItems', item.id), {
+      quantityPicked: item.quantityPicked,
+      status: item.isPicked ? 'picked' : 'pending',
+    })
+    if (order.value?.status === 'pending' && item.isPicked) {
+      await updateDoc(doc(db, 'orders', orderId), { status: 'in-progress' })
+      order.value = { ...order.value, status: 'in-progress' }
+    }
+  } catch (err) {
+    console.warn('saveItemProgress failed:', err)
+  }
+}
+
+const qtyTimers = {}
+
+function decreaseQty(item) {
+  if (item.quantityPicked > 0) {
+    item.quantityPicked--
+    scheduleItemSave(item)
+  }
+}
+
+function increaseQty(item) {
+  if (item.quantityPicked < item.quantityOrdered) {
+    item.quantityPicked++
+    scheduleItemSave(item)
+  }
+}
+
+function scheduleItemSave(item) {
+  clearTimeout(qtyTimers[item.id])
+  qtyTimers[item.id] = setTimeout(() => saveItemProgress(item), 400)
+}
 
 function onPickedToggle(item) {
   if (item.isPicked) {
@@ -168,7 +205,25 @@ function onPickedToggle(item) {
     item.quantityPicked = 0
     item.status = 'pending'
   }
+  saveItemProgress(item)
 }
+
+let notesTimer = null
+function scheduleNotesSave() {
+  clearTimeout(notesTimer)
+  notesTimer = setTimeout(async () => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { pickingNotes: pickingNotes.value })
+    } catch {}
+  }, 500)
+}
+
+onUnmounted(() => {
+  clearTimeout(notesTimer)
+  Object.values(qtyTimers).forEach(clearTimeout)
+})
+
+// --- Load ---
 
 onMounted(async () => {
   const orderSnap = await getDoc(doc(db, 'orders', orderId))
@@ -198,6 +253,8 @@ onMounted(async () => {
   )
   loading.value = false
 })
+
+// --- Complete ---
 
 async function handleComplete() {
   const isRevived = order.value?.isRevived
