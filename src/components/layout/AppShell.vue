@@ -85,6 +85,19 @@
       </template>
     </v-navigation-drawer>
 
+    <!-- Offline banner -->
+    <v-banner
+      v-if="!isOnline"
+      color="warning"
+      icon="mdi-wifi-off"
+      lines="one"
+      style="position: sticky; top: 64px; z-index: 100;"
+    >
+      <v-banner-text>
+        אין חיבור לרשת — עובד במצב לא מקוון. השינויים יסונכרנו אוטומטית כשהחיבור יחזור.
+      </v-banner-text>
+    </v-banner>
+
     <!-- Main Content -->
     <v-main>
       <v-container fluid class="pa-4">
@@ -95,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -110,6 +123,18 @@ const isMobile = computed(() => mobile.value)
 const drawer = ref(false)
 const rail = ref(true)
 const menuHint = ref(true)
+const isOnline = ref(navigator.onLine)
+
+function handleOnline() { isOnline.value = true }
+function handleOffline() { isOnline.value = false }
+onMounted(() => {
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('offline', handleOffline)
+})
+onUnmounted(() => {
+  window.removeEventListener('online', handleOnline)
+  window.removeEventListener('offline', handleOffline)
+})
 setTimeout(() => { menuHint.value = false }, 2000)
 
 function toggleDrawer() {
