@@ -20,6 +20,17 @@
       הזמנה זו הוחייתה — הסחורה כבר נלקטה ומוכנה למשלוח. לחץ "אשר משלוח" לסיום.
     </v-alert>
 
+    <!-- Order notes -->
+    <v-card v-if="orderNotesList.length" rounded="xl" class="mb-4 pa-3" color="amber-lighten-5" flat>
+      <div class="d-flex align-center mb-1">
+        <v-icon size="18" class="me-1">mdi-note-text</v-icon>
+        <span class="text-body-2 font-weight-medium">הערות להזמנה</span>
+      </div>
+      <ul class="ps-4 mb-0">
+        <li v-for="(note, idx) in orderNotesList" :key="idx" class="text-body-2">{{ note }}</li>
+      </ul>
+    </v-card>
+
     <!-- Progress bar -->
     <v-card rounded="xl" class="mb-4 pa-4" color="blue-lighten-5" flat>
       <div class="d-flex justify-space-between mb-2">
@@ -72,6 +83,18 @@
               <div class="text-body-2 mt-1">
                 הוזמן: <strong>{{ item.quantityOrdered }}</strong>
                 <span v-if="item.orderType === 'package'" class="text-caption"> ({{ item.packagesOrdered }} מארז)</span>
+              </div>
+              <div v-if="item.currentStock !== null" class="d-flex align-center gap-1 mt-1">
+                <span class="text-caption text-medium-emphasis">מלאי במערכת:</span>
+                <v-chip
+                  size="x-small"
+                  :color="item.currentStock <= 3 ? 'error' : (item.currentStock <= 10 ? 'warning' : 'grey-lighten-2')"
+                  :variant="item.currentStock <= 3 ? 'elevated' : 'tonal'"
+                  class="font-weight-bold"
+                >
+                  <v-icon v-if="item.currentStock <= 3" start size="14">mdi-alert</v-icon>
+                  {{ item.currentStock }}
+                </v-chip>
               </div>
             </div>
             <div class="d-flex flex-column align-center gap-2">
@@ -154,6 +177,10 @@ const sortedItems = computed(() =>
     const keyB = sortBy.value === 'brand' ? (b.product?.brand || '') : (b.product?.name || '')
     return key.localeCompare(keyB, 'he')
   })
+)
+
+const orderNotesList = computed(() =>
+  (order.value?.notes || '').split('\n').map((s) => s.trim()).filter(Boolean)
 )
 
 const pickedCount = computed(() => items.value.filter((i) => i.isPicked).length)

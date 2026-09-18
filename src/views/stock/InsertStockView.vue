@@ -124,13 +124,16 @@ async function handleSubmit() {
   if (!v) return
 
   saving.value = true
-  const delta = mode.value === 'add' ? Number(amount.value) : -Number(amount.value)
-  const source = mode.value === 'add' ? 'manual' : 'deduction'
-  const success = await adjustStock(sku, product.value.name, delta, notes.value, source)
-  saving.value = false
+  try {
+    const delta = mode.value === 'add' ? Number(amount.value) : -Number(amount.value)
+    const source = mode.value === 'add' ? 'manual' : 'deduction'
+    const success = await adjustStock(sku, product.value.name, delta, notes.value, source)
 
-  if (success) {
-    router.push(`/products/${sku}/history`)
+    if (success) {
+      router.push(`/products/${sku}/history`)
+    }
+  } finally {
+    saving.value = false
   }
 }
 </script>

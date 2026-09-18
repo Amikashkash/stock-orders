@@ -1,4 +1,4 @@
-import { doc, collection, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { doc, collection, getDoc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
@@ -14,33 +14,31 @@ export function useStockEntry() {
     }
 
     try {
-      await runTransaction(db, async (tx) => {
-        const productRef = doc(db, 'products', productId)
-        const productSnap = await tx.get(productRef)
+      const productRef = doc(db, 'products', productId)
+      const productSnap = await getDoc(productRef)
 
-        if (!productSnap.exists()) throw new Error('המוצר לא נמצא')
+      if (!productSnap.exists()) throw new Error('המוצר לא נמצא')
 
-        const currentStock = productSnap.data().stockQuantity || 0
-        const newStock = currentStock + amount
+      const currentStock = productSnap.data().stockQuantity || 0
+      const newStock = currentStock + amount
 
-        const entryRef = doc(collection(db, 'stockEntries'))
-        tx.set(entryRef, {
-          productId,
-          productName,
-          amountAdded: amount,
-          previousStock: currentStock,
-          newStock,
-          date: serverTimestamp(),
-          enteredBy: authStore.user.uid,
-          enteredByName: authStore.displayName,
-          notes,
-          source,
-        })
-
-        const update = { stockQuantity: newStock, updatedAt: serverTimestamp() }
-        if (amount > 0) update.lastRestockedAt = serverTimestamp()
-        tx.update(productRef, update)
+      const entryRef = doc(collection(db, 'stockEntries'))
+      await setDoc(entryRef, {
+        productId,
+        productName,
+        amountAdded: amount,
+        previousStock: currentStock,
+        newStock,
+        date: serverTimestamp(),
+        enteredBy: authStore.user.uid,
+        enteredByName: authStore.displayName,
+        notes,
+        source,
       })
+
+      const update = { stockQuantity: increment(amount), updatedAt: serverTimestamp() }
+      if (amount > 0) update.lastRestockedAt = serverTimestamp()
+      await updateDoc(productRef, update)
 
       if (amount > 0) {
         notify.showSuccess(`נוספו ${amount} יחידות למלאי`)
