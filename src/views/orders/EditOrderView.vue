@@ -50,7 +50,15 @@
       <v-row class="mb-24">
         <v-col cols="12" md="6">
           <CartSummary @clear="cartStore.clear()" />
-          <v-textarea v-model="notes" label="הערות למלקט" rows="3" class="mt-4" />
+          <v-textarea
+            v-model="notes"
+            label="הערות למלקט"
+            rows="3"
+            class="mt-4"
+            placeholder="הוראות מיוחדות, החלפות מותרות..."
+            hint="מומלץ לכתוב כל נושא/בקשה בשורה נפרדת"
+            persistent-hint
+          />
         </v-col>
       </v-row>
     </template>

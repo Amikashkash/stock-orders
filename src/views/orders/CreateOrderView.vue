@@ -83,6 +83,8 @@
           rows="3"
           class="mt-4"
           placeholder="הוראות מיוחדות, החלפות מותרות..."
+          hint="מומלץ לכתוב כל נושא/בקשה בשורה נפרדת"
+          persistent-hint
         />
       </v-col>
     </v-row>

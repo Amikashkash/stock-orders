@@ -26,9 +26,19 @@
         <v-icon size="18" class="me-1">mdi-note-text</v-icon>
         <span class="text-body-2 font-weight-medium">הערות להזמנה</span>
       </div>
-      <ul class="ps-4 mb-0">
-        <li v-for="(note, idx) in orderNotesList" :key="idx" class="text-body-2">{{ note }}</li>
-      </ul>
+      <div v-for="(note, idx) in orderNotesList" :key="idx" class="d-flex align-start gap-1">
+        <v-checkbox
+          v-model="noteChecks[idx]"
+          hide-details
+          density="compact"
+          color="success"
+          class="flex-shrink-0 mt-n1"
+        />
+        <span
+          class="text-body-2 mt-1"
+          :class="{ 'text-decoration-line-through text-medium-emphasis': noteChecks[idx] }"
+        >{{ note }}</span>
+      </div>
     </v-card>
 
     <!-- Progress bar -->
@@ -75,7 +85,19 @@
               @click="lightbox.show(item.product?.imageUrl, item.product?.name)"
             />
             <div class="flex-grow-1">
-              <div class="text-subtitle-2 font-weight-bold">{{ item.product?.name || item.productId }}</div>
+              <div class="d-flex align-center gap-2 flex-wrap">
+                <div class="text-subtitle-2 font-weight-bold">{{ item.product?.name || item.productId }}</div>
+                <v-chip
+                  v-if="item.currentStock !== null"
+                  size="small"
+                  :color="item.currentStock <= 3 ? 'red-darken-1' : 'deep-purple'"
+                  variant="flat"
+                  class="font-weight-bold"
+                >
+                  <v-icon v-if="item.currentStock <= 3" start size="14">mdi-alert</v-icon>
+                  מלאי: {{ item.currentStock }}
+                </v-chip>
+              </div>
               <div class="text-caption text-medium-emphasis">
                 {{ item.product?.brand }}
                 <span v-if="item.product?.weight?.value"> · <strong>{{ item.product.weight.value }}{{ item.product.weight.unit }}</strong></span>
@@ -83,18 +105,6 @@
               <div class="text-body-2 mt-1">
                 הוזמן: <strong>{{ item.quantityOrdered }}</strong>
                 <span v-if="item.orderType === 'package'" class="text-caption"> ({{ item.packagesOrdered }} מארז)</span>
-              </div>
-              <div v-if="item.currentStock !== null" class="d-flex align-center gap-1 mt-1">
-                <span class="text-caption text-medium-emphasis">מלאי במערכת:</span>
-                <v-chip
-                  size="x-small"
-                  :color="item.currentStock <= 3 ? 'error' : (item.currentStock <= 10 ? 'warning' : 'grey-lighten-2')"
-                  :variant="item.currentStock <= 3 ? 'elevated' : 'tonal'"
-                  class="font-weight-bold"
-                >
-                  <v-icon v-if="item.currentStock <= 3" start size="14">mdi-alert</v-icon>
-                  {{ item.currentStock }}
-                </v-chip>
               </div>
             </div>
             <div class="d-flex flex-column align-center gap-2">
@@ -145,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, getDocs, collection, updateDoc } from 'firebase/firestore'
 import { db } from '@/firebase'
@@ -182,6 +192,10 @@ const sortedItems = computed(() =>
 const orderNotesList = computed(() =>
   (order.value?.notes || '').split('\n').map((s) => s.trim()).filter(Boolean)
 )
+const noteChecks = ref([])
+watch(orderNotesList, (list) => {
+  noteChecks.value = list.map(() => false)
+}, { immediate: true })
 
 const pickedCount = computed(() => items.value.filter((i) => i.isPicked).length)
 const progressPercent = computed(() => items.value.length ? (pickedCount.value / items.value.length) * 100 : 0)
